@@ -10,10 +10,9 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as ProtectedRouteImport } from './routes/_protected'
+import { Route as AppRouteImport } from './routes/app'
 import { Route as LoginRouteImport } from './routes/login'
-import { Route as ProtectedAppRouteImport } from './routes/_protected/app'
-import { Route as ProtectedSubscriptionsRouteImport } from './routes/_protected/subscriptions'
+import { Route as SubscriptionsRouteImport } from './routes/subscriptions'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as ApiRpcSplatRouteImport } from './routes/api/rpc/$'
 
@@ -22,8 +21,9 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ProtectedRoute = ProtectedRouteImport.update({
-  id: '/_protected',
+const AppRoute = AppRouteImport.update({
+  id: '/app',
+  path: '/app',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LoginRoute = LoginRouteImport.update({
@@ -31,15 +31,10 @@ const LoginRoute = LoginRouteImport.update({
   path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ProtectedAppRoute = ProtectedAppRouteImport.update({
-  id: '/app',
-  path: '/app',
-  getParentRoute: () => ProtectedRoute,
-} as any)
-const ProtectedSubscriptionsRoute = ProtectedSubscriptionsRouteImport.update({
+const SubscriptionsRoute = SubscriptionsRouteImport.update({
   id: '/subscriptions',
   path: '/subscriptions',
-  getParentRoute: () => ProtectedRoute,
+  getParentRoute: () => rootRouteImport,
 } as any)
 const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   id: '/api/auth/$',
@@ -54,51 +49,50 @@ const ApiRpcSplatRoute = ApiRpcSplatRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/app': typeof AppRoute
   '/login': typeof LoginRoute
-  '/app': typeof ProtectedAppRoute
-  '/subscriptions': typeof ProtectedSubscriptionsRoute
+  '/subscriptions': typeof SubscriptionsRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/rpc/$': typeof ApiRpcSplatRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/app': typeof AppRoute
   '/login': typeof LoginRoute
-  '/app': typeof ProtectedAppRoute
-  '/subscriptions': typeof ProtectedSubscriptionsRoute
+  '/subscriptions': typeof SubscriptionsRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/rpc/$': typeof ApiRpcSplatRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/_protected': typeof ProtectedRouteWithChildren
+  '/app': typeof AppRoute
   '/login': typeof LoginRoute
-  '/_protected/app': typeof ProtectedAppRoute
-  '/_protected/subscriptions': typeof ProtectedSubscriptionsRoute
+  '/subscriptions': typeof SubscriptionsRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/rpc/$': typeof ApiRpcSplatRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
-    '/' | '/login' | '/app' | '/subscriptions' | '/api/auth/$' | '/api/rpc/$'
+    '/' | '/app' | '/login' | '/subscriptions' | '/api/auth/$' | '/api/rpc/$'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/login' | '/app' | '/subscriptions' | '/api/auth/$' | '/api/rpc/$'
+  to: '/' | '/app' | '/login' | '/subscriptions' | '/api/auth/$' | '/api/rpc/$'
   id:
     | '__root__'
     | '/'
-    | '/_protected'
+    | '/app'
     | '/login'
-    | '/_protected/app'
-    | '/_protected/subscriptions'
+    | '/subscriptions'
     | '/api/auth/$'
     | '/api/rpc/$'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  ProtectedRoute: typeof ProtectedRouteWithChildren
+  AppRoute: typeof AppRoute
   LoginRoute: typeof LoginRoute
+  SubscriptionsRoute: typeof SubscriptionsRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiRpcSplatRoute: typeof ApiRpcSplatRoute
 }
@@ -112,11 +106,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/_protected': {
-      id: '/_protected'
-      path: ''
-      fullPath: '/'
-      preLoaderRoute: typeof ProtectedRouteImport
+    '/app': {
+      id: '/app'
+      path: '/app'
+      fullPath: '/app'
+      preLoaderRoute: typeof AppRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/login': {
@@ -126,19 +120,12 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/_protected/app': {
-      id: '/_protected/app'
-      path: '/app'
-      fullPath: '/app'
-      preLoaderRoute: typeof ProtectedAppRouteImport
-      parentRoute: typeof ProtectedRoute
-    }
-    '/_protected/subscriptions': {
-      id: '/_protected/subscriptions'
+    '/subscriptions': {
+      id: '/subscriptions'
       path: '/subscriptions'
       fullPath: '/subscriptions'
-      preLoaderRoute: typeof ProtectedSubscriptionsRouteImport
-      parentRoute: typeof ProtectedRoute
+      preLoaderRoute: typeof SubscriptionsRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/api/auth/$': {
       id: '/api/auth/$'
@@ -157,24 +144,11 @@ declare module '@tanstack/react-router' {
   }
 }
 
-interface ProtectedRouteChildren {
-  ProtectedAppRoute: typeof ProtectedAppRoute
-  ProtectedSubscriptionsRoute: typeof ProtectedSubscriptionsRoute
-}
-
-const ProtectedRouteChildren: ProtectedRouteChildren = {
-  ProtectedAppRoute: ProtectedAppRoute,
-  ProtectedSubscriptionsRoute: ProtectedSubscriptionsRoute,
-}
-
-const ProtectedRouteWithChildren = ProtectedRoute._addFileChildren(
-  ProtectedRouteChildren,
-)
-
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  ProtectedRoute: ProtectedRouteWithChildren,
+  AppRoute: AppRoute,
   LoginRoute: LoginRoute,
+  SubscriptionsRoute: SubscriptionsRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiRpcSplatRoute: ApiRpcSplatRoute,
 }

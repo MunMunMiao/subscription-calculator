@@ -1,6 +1,7 @@
 import { HeadContent, Scripts, createRootRoute } from "@tanstack/react-router"
 import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools"
 import { TanStackDevtools } from "@tanstack/react-devtools"
+import type { ReactNode } from "react"
 
 import { AppProviders } from "@/components/providers"
 import { getSession } from "@/lib/session"
@@ -19,15 +20,26 @@ export const Route = createRootRoute({
         content: "width=device-width, initial-scale=1",
       },
       {
-        title: "订阅计算器 · Subscription Calculator",
+        title: "手帐",
       },
       {
         name: "description",
-        content:
-          "Track recurring subscriptions and one-time fees with spend visualizations.",
+        content: "手帐",
       },
     ],
-    links: [{ rel: "stylesheet", href: appCss }],
+    links: [
+      { rel: "stylesheet", href: appCss },
+      { rel: "preconnect", href: "https://fonts.googleapis.com" },
+      {
+        rel: "preconnect",
+        href: "https://fonts.gstatic.com",
+        crossOrigin: "anonymous",
+      },
+      {
+        rel: "stylesheet",
+        href: "https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&family=Noto+Serif+SC:wght@400;600;700&display=swap",
+      },
+    ],
   }),
   notFoundComponent: () => (
     <main className="mx-auto max-w-lg p-6 pt-16">
@@ -40,13 +52,13 @@ export const Route = createRootRoute({
   shellComponent: RootDocument,
 })
 
-function RootDocument({ children }: { children: React.ReactNode }) {
+function RootDocument({ children }: { children: ReactNode }) {
   return (
     <html lang="zh-CN" suppressHydrationWarning>
       <head>
         <HeadContent />
       </head>
-      <body className="min-h-svh bg-background text-foreground antialiased">
+      <body className="antialiased">
         <AppProviders>
           {children}
           {import.meta.env.DEV ? (

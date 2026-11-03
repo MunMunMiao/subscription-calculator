@@ -1,14 +1,12 @@
-# Subscription Calculator
+# 手帐
 
-Track recurring subscriptions and one-time fees, then understand spend through monthly/yearly totals, category breakdowns, upcoming charges, and simple charts.
-
-订阅计算器：用 GitHub 登录后管理自己的周期性订阅和一次性费用，并在总览里查看月/年支出、分类占比与即将扣费时间线。
+GitHub 登录后记录周期性订阅和一次性费用，并在同一张书桌上查看月/年支出、分类占比、订阅列表和即将扣费。
 
 ## Stack
 
 - **Bun 1.4.4** (runtime, package manager, type checker, formatter)
-- TanStack Start (React, Vite)
-- shadcn/ui on Base UI (`base-nova`)
+- TanStack Start (React, Vite) — used for SSR, session, and HTTP endpoints
+- GSAP + `@gsap/react` for desk/paper transitions (no client router for UI modes)
 - oRPC
 - Drizzle ORM + Cloudflare D1 (SQLite)
 - better-auth with **GitHub OAuth only**
@@ -87,7 +85,11 @@ bun run db:migrate:local
 bun run dev
 ```
 
-Open `http://localhost:3000`. Sign in with GitHub, add subscriptions (or load sample data from the empty state), then open **总览** for charts.
+Open `http://localhost:3000`.
+
+1. Landing is the wooden desk: title **手帐** and **GitHub 登录**.
+2. After GitHub OAuth returns to `/`, the same desk stays on screen. Paper tabs switch 总览 / 分类 / 订阅 / 扣费 / 记一笔 via GSAP (not URL routes).
+3. `/app`, `/login`, and `/subscriptions` redirect to `/`. Auth and RPC stay at `/api/auth/*` and `/api/rpc/*`.
 
 `install` + `check` + `build` do **not** need real GitHub/Cloudflare credentials. Runtime sign-in, D1 persistence, and `wrangler deploy` do.
 
@@ -102,16 +104,19 @@ Preview a production build locally with `bun run preview` (Workers runtime via t
 
 ## Architecture
 
-| Layer           | Location                                                      |
-| --------------- | ------------------------------------------------------------- |
-| Drizzle schema  | `src/db/schema.ts`                                            |
-| D1 client       | `src/db/index.ts` (`env.DB` from `cloudflare:workers`)        |
-| better-auth     | `src/lib/auth.ts` (server factory) + `src/lib/auth-client.ts` |
-| oRPC procedures | `src/orpc/router.ts`                                          |
-| RPC HTTP        | `src/routes/api/rpc/$.ts`                                     |
-| Auth HTTP       | `src/routes/api/auth/$.ts`                                    |
-| UI              | `src/routes/*` + `src/components/*`                           |
-| Spend math      | `src/lib/spend.ts`                                            |
+| Layer           | Location                                                        |
+| --------------- | --------------------------------------------------------------- |
+| Drizzle schema  | `src/db/schema.ts`                                              |
+| D1 client       | `src/db/index.ts` (`env.DB` from `cloudflare:workers`)          |
+| better-auth     | `src/lib/auth.ts` (server factory) + `src/lib/auth-client.ts`   |
+| oRPC procedures | `src/orpc/router.ts`                                            |
+| RPC HTTP        | `src/routes/api/rpc/$.ts`                                       |
+| Auth HTTP       | `src/routes/api/auth/$.ts`                                      |
+| Desk UI         | `src/components/desk-app.tsx` + `src/components/desk-scene.tsx` |
+| GSAP register   | `src/lib/gsap.ts`                                               |
+| Spend math      | `src/lib/spend.ts`                                              |
+
+The visible desk, letter paper, and stationery are inline SVG. Paper content (login, lists, form) overlays the SVG sheet. Mode changes are GSAP timelines inside `DeskApp`; TanStack Router is not used to switch those views.
 
 Amounts are stored as integer minor units (`amount_cents`). USD and CNY are totaled separately; the app does not invent an exchange rate.
 
