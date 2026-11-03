@@ -19,11 +19,12 @@
     {
       "binding": "DB",
       "database_name": "subscription-calculator",
-      "database_id": "00000000-0000-4000-8000-000000000001",
+      "database_id": "2200c603-924c-48a2-a8c0-e4b9a47e83da",
       "migrations_dir": "drizzle",
     },
   ],
+  "routes": [{ "pattern": "orbit.lyz.cloud", "custom_domain": true }],
   "vars": {
-    "BETTER_AUTH_URL": "http://localhost:3000",
+    "BETTER_AUTH_URL": "https://orbit.lyz.cloud",
   },
 }
