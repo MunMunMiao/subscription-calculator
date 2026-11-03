@@ -90,9 +90,7 @@ export function SubscriptionForm({
           name: initial.name,
           amount: centsToAmount(initial.amountCents),
           currency: initial.currency,
-          category: isCategory(initial.category)
-            ? initial.category
-            : "other",
+          category: isCategory(initial.category) ? initial.category : "other",
           notes: initial.notes ?? "",
           type: initial.type,
           interval: initial.interval ?? "monthly",

@@ -51,7 +51,11 @@ export function SiteHeader({ user }: { user?: HeaderUser | null }) {
                 <div className="text-foreground">{user.name}</div>
                 <div className="text-muted-foreground">{user.email}</div>
               </div>
-              <Button variant="outline" size="sm" onClick={() => void signOut()}>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => void signOut()}
+              >
                 <LogOutIcon data-icon="inline-start" />
                 退出
               </Button>

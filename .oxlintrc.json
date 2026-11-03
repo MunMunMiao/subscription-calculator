@@ -1,0 +1,23 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": ["typescript", "react", "unicorn", "oxc", "import"],
+  "categories": {
+    "correctness": "error"
+  },
+  "env": {
+    "browser": true
+  },
+  "ignorePatterns": [
+    "dist/**",
+    ".wrangler/**",
+    ".output/**",
+    ".tanstack/**",
+    "drizzle/**",
+    "src/routeTree.gen.ts",
+    "src/components/ui/**",
+    "worker-configuration.d.ts"
+  ],
+  "rules": {
+    "import/no-cycle": "off"
+  }
+}

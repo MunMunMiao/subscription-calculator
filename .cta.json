@@ -2,7 +2,7 @@
   "projectName": "start-app",
   "mode": "file-router",
   "typescript": true,
-  "packageManager": "pnpm",
+  "packageManager": "bun",
   "git": true,
   "install": true,
   "intent": false,
@@ -14,5 +14,5 @@
   "version": 1,
   "framework": "react",
   "bundler": "vite",
-  "chosenAddOns": ["eslint"]
+  "chosenAddOns": []
 }

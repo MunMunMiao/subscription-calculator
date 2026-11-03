@@ -1,4 +1,10 @@
-import type { Category, Currency, Interval, Status, SubscriptionType } from "./catalog"
+import type {
+  Category,
+  Currency,
+  Interval,
+  Status,
+  SubscriptionType,
+} from "./catalog"
 import { isCategory } from "./catalog"
 
 export type SpendItem = {
@@ -64,7 +70,11 @@ export function startOfUtcYear(date: Date): Date {
 
 export function addUtcMonths(date: Date, months: number): Date {
   return new Date(
-    Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + months, date.getUTCDate())
+    Date.UTC(
+      date.getUTCFullYear(),
+      date.getUTCMonth() + months,
+      date.getUTCDate()
+    )
   )
 }
 
@@ -285,7 +295,11 @@ export function sixMonthForecast(
     }
   })
 
-  const charges = upcomingCharges(items, start, Math.ceil((end.getTime() - start.getTime()) / (24 * 60 * 60 * 1000)))
+  const charges = upcomingCharges(
+    items,
+    start,
+    Math.ceil((end.getTime() - start.getTime()) / (24 * 60 * 60 * 1000))
+  )
 
   for (const charge of charges) {
     if (charge.currency !== currency) continue

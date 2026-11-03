@@ -28,21 +28,21 @@ export const Route = createFileRoute("/_protected/app")({
   component: DashboardPage,
 })
 
+const EMPTY_SPEND_ITEMS: SpendItem[] = []
+
 function DashboardPage() {
   const navigate = useNavigate()
   const listQuery = useQuery(orpc.subscriptions.list.queryOptions())
-  const items = (listQuery.data ?? []) as SpendItem[]
+  const items = (listQuery.data ?? EMPTY_SPEND_ITEMS) as SpendItem[]
   const currencies = usedCurrencies(items)
   const [currency, setCurrency] = useState<Currency>(currencies[0] ?? "USD")
+  const [now] = useState(() => new Date())
   const activeCurrency = currencies.includes(currency)
     ? currency
     : (currencies[0] ?? "USD")
   const totals = useMemo(() => totalsByCurrency(items), [items])
   const selectedTotals = totals.find((item) => item.currency === activeCurrency)
-  const charges = useMemo(
-    () => upcomingCharges(items, new Date(), 90),
-    [items]
-  )
+  const charges = useMemo(() => upcomingCharges(items, now, 90), [items, now])
 
   return (
     <div className="space-y-6">
@@ -144,7 +144,9 @@ function StatCard({
         <CardDescription>{title}</CardDescription>
         <CardTitle className="text-2xl">{value}</CardTitle>
       </CardHeader>
-      <CardContent className="text-xs text-muted-foreground">{hint}</CardContent>
+      <CardContent className="text-xs text-muted-foreground">
+        {hint}
+      </CardContent>
     </Card>
   )
 }

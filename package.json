@@ -3,24 +3,29 @@
   "private": true,
   "type": "module",
   "engines": {
-    "node": ">=22.12.0"
+    "bun": "1.4.4"
   },
-  "packageManager": "pnpm@10.33.4",
+  "packageManager": "bun@1.4.4",
   "scripts": {
     "dev": "vite dev --port 3000",
     "generate-routes": "tsr generate",
     "build": "vite build",
     "preview": "vite preview",
-    "deploy": "pnpm build && wrangler deploy",
+    "deploy": "bun run build && wrangler deploy",
     "cf-typegen": "wrangler types --include-runtime false",
     "db:generate": "drizzle-kit generate",
     "db:migrate:local": "wrangler d1 migrations apply subscription-calculator --local",
     "db:migrate:remote": "wrangler d1 migrations apply subscription-calculator --remote",
-    "lint": "eslint",
-    "format": "prettier --write \"**/*.{ts,tsx,js,jsx}\"",
-    "check": "prettier --check \"**/*.{ts,tsx,js,jsx}\"",
-    "typecheck": "tsc --noEmit"
+    "lint": "oxlint",
+    "fmt": "bun fmt --no-script",
+    "check": "bun check --no-script"
   },
+  "trustedDependencies": [
+    "esbuild",
+    "lightningcss",
+    "unrs-resolver",
+    "workerd"
+  ],
   "dependencies": {
     "@base-ui/react": "^1.9.0",
     "@better-auth/drizzle-adapter": "^1.7.15",
@@ -53,16 +58,13 @@
     "@cloudflare/vite-plugin": "^1.67.0",
     "@cloudflare/workers-types": "^5.20261103.1",
     "@tanstack/devtools-vite": "latest",
-    "@tanstack/eslint-config": "latest",
     "@tanstack/router-cli": "^1.167.45",
     "@types/node": "^22",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@vitejs/plugin-react": "^6",
     "drizzle-kit": "^0.31.11",
-    "eslint": "^10",
-    "prettier": "^3.9.10",
-    "prettier-plugin-tailwindcss": "^0.8.1",
+    "oxlint": "^1.90.0",
     "typescript": "^6.0.2",
     "vite": "^8",
     "wrangler": "^4.156.2"

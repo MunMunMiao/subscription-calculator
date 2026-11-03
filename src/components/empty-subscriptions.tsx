@@ -27,7 +27,8 @@ export function EmptySubscriptions({
         </EmptyMedia>
         <EmptyTitle>还没有订阅</EmptyTitle>
         <EmptyDescription>
-          添加 Netflix、云服务、域名续费或一次性购买，就能在总览里看到月/年支出、分类占比和即将扣费日期。
+          添加
+          Netflix、云服务、域名续费或一次性购买，就能在总览里看到月/年支出、分类占比和即将扣费日期。
         </EmptyDescription>
       </EmptyHeader>
       <EmptyContent>

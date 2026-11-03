@@ -82,7 +82,10 @@ function CategoryPie({
             暂无可以绘图的支出
           </p>
         ) : (
-          <ChartContainer config={config} className="mx-auto aspect-square max-h-72">
+          <ChartContainer
+            config={config}
+            className="mx-auto aspect-square max-h-72"
+          >
             <PieChart>
               <ChartTooltip
                 content={
@@ -146,7 +149,11 @@ function ForecastBars({
                 />
               }
             />
-            <Bar dataKey="amountCents" fill="var(--color-amountCents)" radius={6} />
+            <Bar
+              dataKey="amountCents"
+              fill="var(--color-amountCents)"
+              radius={6}
+            />
           </BarChart>
         </ChartContainer>
       </CardContent>
