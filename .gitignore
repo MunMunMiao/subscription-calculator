@@ -1,0 +1,21 @@
+node_modules
+.DS_Store
+dist
+dist-ssr
+*.local
+.env
+.env.local
+.env.*.local
+.dev.vars
+.nitro
+.tanstack
+.wrangler
+.output
+.vinxi
+__unconfig*
+todos.json
+*.tsbuildinfo
+
+# Keep example env files
+!.env.example
+!.dev.vars.example
