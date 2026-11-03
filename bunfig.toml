@@ -1,0 +1,29 @@
+# Pin the toolchain in package.json (`engines.bun`, `packageManager`) and `.bun-version`.
+# Install: curl -fsSL https://bun.com/install | bash -s "bun-v1.4.4"
+
+[run]
+# Use Bun's shell for package.json scripts. Wrangler/Vite still spawn
+# workerd for the Workers runtime; do not alias `node` to `bun` (that
+# breaks the Cloudflare Vite plugin's miniflare type handshake).
+shell = "bun"
+
+[fmt]
+printWidth = 80
+semi = false
+singleQuote = false
+tabWidth = 2
+trailingComma = "es5"
+endOfLine = "lf"
+ignorePatterns = [
+  "src/routeTree.gen.ts",
+  "worker-configuration.d.ts",
+  "drizzle/**",
+  "dist/**",
+  ".wrangler/**",
+  ".output/**",
+  ".tanstack/**",
+]
+
+[fmt.sortTailwindcss]
+stylesheet = "src/styles.css"
+functions = ["cn", "cva"]
