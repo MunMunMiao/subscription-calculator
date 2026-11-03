@@ -31,22 +31,18 @@ Node.js and pnpm are not the project toolchain. Install, scripts, typecheck, and
 
 ## Cloudflare resources
 
-| Resource         | Value                                |
-| ---------------- | ------------------------------------ |
-| Worker name      | `subscription-calculator`            |
-| D1 binding       | `DB`                                 |
-| D1 database name | `subscription-calculator`            |
-| Wrangler config  | `wrangler.jsonc`                     |
-| Migrations       | `drizzle/` (`0001_init.sql`)         |
-| Worker entry     | `@tanstack/react-start/server-entry` |
+| Resource         | Value                                  |
+| ---------------- | -------------------------------------- |
+| Worker name      | `subscription-calculator`              |
+| Production host  | `https://orbit.lyz.cloud`              |
+| D1 binding       | `DB`                                   |
+| D1 database name | `subscription-calculator`              |
+| D1 database id   | `2200c603-924c-48a2-a8c0-e4b9a47e83da` |
+| Wrangler config  | `wrangler.jsonc`                       |
+| Migrations       | `drizzle/` (`0001_init.sql`)           |
+| Worker entry     | `@tanstack/react-start/server-entry`   |
 
-Replace the placeholder `database_id` in `wrangler.jsonc` after you create a real D1 database:
-
-```sh
-bunx wrangler d1 create subscription-calculator
-```
-
-Paste the returned `database_id` into `wrangler.jsonc`. Local `vite dev` still works with the placeholder; Wrangler creates a local SQLite file under `.wrangler/`.
+Production Wrangler already points at this D1 database and custom domain (`routes` with `custom_domain: true`). Local `vite dev` still uses a Wrangler-managed SQLite file under `.wrangler/`; keep `BETTER_AUTH_URL=http://localhost:3000` in `.dev.vars` so local OAuth is not sent to production.
 
 ## Environment variables
 
@@ -58,17 +54,17 @@ cp .dev.vars.example .dev.vars
 cp .env.example .env
 ```
 
-| Name                   | Where                                   | Purpose                                                                             |
-| ---------------------- | --------------------------------------- | ----------------------------------------------------------------------------------- |
-| `BETTER_AUTH_URL`      | `wrangler.jsonc` `vars` and `.dev.vars` | Public origin used as better-auth `baseURL` (local default `http://localhost:3000`) |
-| `BETTER_AUTH_SECRET`   | `.dev.vars` / `wrangler secret put`     | Session signing secret (`openssl rand -hex 32`)                                     |
-| `GITHUB_CLIENT_ID`     | `.dev.vars` / `wrangler secret put`     | GitHub OAuth app client id                                                          |
-| `GITHUB_CLIENT_SECRET` | `.dev.vars` / `wrangler secret put`     | GitHub OAuth app client secret                                                      |
+| Name                   | Where                                                                                                          | Purpose                                         |
+| ---------------------- | -------------------------------------------------------------------------------------------------------------- | ----------------------------------------------- |
+| `BETTER_AUTH_URL`      | `wrangler.jsonc` `vars` (production `https://orbit.lyz.cloud`) and `.dev.vars` (local `http://localhost:3000`) | Public origin used as better-auth `baseURL`     |
+| `BETTER_AUTH_SECRET`   | `.dev.vars` / `wrangler secret put`                                                                            | Session signing secret (`openssl rand -hex 32`) |
+| `GITHUB_CLIENT_ID`     | `.dev.vars` / `wrangler secret put`                                                                            | GitHub OAuth app client id                      |
+| `GITHUB_CLIENT_SECRET` | `.dev.vars` / `wrangler secret put`                                                                            | GitHub OAuth app client secret                  |
 
 GitHub OAuth callback URLs:
 
 - Local: `http://localhost:3000/api/auth/callback/github`
-- Production: `https://<your-worker>.workers.dev/api/auth/callback/github`
+- Production: `https://orbit.lyz.cloud/api/auth/callback/github`
 
 Grant the GitHub app **email read** access (OAuth app: `user:email`; GitHub App: Account Permissions → Email addresses → Read-only).
 
@@ -80,7 +76,7 @@ bunx wrangler secret put GITHUB_CLIENT_ID
 bunx wrangler secret put GITHUB_CLIENT_SECRET
 ```
 
-Then set production `BETTER_AUTH_URL` in `wrangler.jsonc` `vars` (or the Cloudflare dashboard) to your deployed origin.
+Production `BETTER_AUTH_URL` is already set in `wrangler.jsonc` `vars` to `https://orbit.lyz.cloud`. Do not put GitHub or better-auth secrets in the repo.
 
 ## Local development
 
@@ -97,11 +93,10 @@ Open `http://localhost:3000`. Sign in with GitHub, add subscriptions (or load sa
 
 ## Deploy outline
 
-1. Create D1 and put the real `database_id` in `wrangler.jsonc`.
+1. D1 (`subscription-calculator` / `2200c603-924c-48a2-a8c0-e4b9a47e83da`) and custom domain `orbit.lyz.cloud` are already in `wrangler.jsonc`.
 2. Apply schema: `bun run db:migrate:remote`
-3. Put GitHub + better-auth secrets on the Worker.
-4. Set `BETTER_AUTH_URL` to the production origin.
-5. Deploy: `bun run deploy` (runs `vite build` then `wrangler deploy`).
+3. Put GitHub + better-auth secrets on the Worker (`wrangler secret put`, not in git).
+4. Deploy: `bun run deploy` (runs `vite build` then `wrangler deploy`).
 
 Preview a production build locally with `bun run preview` (Workers runtime via the Cloudflare Vite plugin).
 
