@@ -11,7 +11,7 @@ import {
 import type { Currency } from "./catalog"
 
 describe("desk idle ink", () => {
-  test("top bar is monthly total only", () => {
+  test("monthly total is currency and month only", () => {
     expect(formatMonthlyBanner(2699, "USD")).toBe("$26.99 / 月")
     expect(formatMonthlyBanner(0, "USD")).toBe("$0.00 / 月")
     expect(formatMonthlyBanner(-10, "USD")).toBe("$0.00 / 月")

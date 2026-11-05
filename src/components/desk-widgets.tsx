@@ -1,4 +1,4 @@
-import type { ReactNode } from "react"
+import { useRef, type ReactNode } from "react"
 
 import { CATEGORIES, categoryLabels, type Currency } from "@/lib/catalog"
 import {
@@ -13,7 +13,13 @@ import {
   WIDGET_SCENE_IDS,
   type AuthWidgetId,
 } from "@/lib/widget-machine"
-import { AUTH_GITHUB_FACE, AUTH_SLOTS } from "@/lib/widget-motion"
+import {
+  AUTH_GITHUB_FACE,
+  AUTH_SLOTS,
+  SESSION_FACE,
+  SESSION_SLOT,
+  isDrag,
+} from "@/lib/widget-motion"
 import type { WidgetSlot } from "@/lib/widget-slots"
 
 const INK = "#2a2118"
@@ -113,16 +119,6 @@ export function CategoryWidget({
             </g>
           )
         })}
-        <text
-          x="0"
-          y="108"
-          textAnchor="middle"
-          fill={INK}
-          fontSize="18"
-          fontFamily="Noto Serif SC, serif"
-        >
-          分类
-        </text>
       </g>
     </g>
   )
@@ -131,9 +127,11 @@ export function CategoryWidget({
 export function SubsWidget({
   slot,
   items,
+  monthly,
 }: {
   slot: WidgetSlot
   items: SubRow[]
+  monthly: string
 }) {
   const rows = items.slice(0, 3)
 
@@ -216,14 +214,15 @@ export function SubsWidget({
           })
         )}
         <text
+          id="subs-monthly"
           x="-12"
-          y="150"
+          y="96"
           textAnchor="middle"
           fill={INK}
-          fontSize="18"
+          fontSize="16"
           fontFamily="Noto Serif SC, serif"
         >
-          订阅
+          {monthly}
         </text>
       </g>
     </g>
@@ -322,16 +321,6 @@ export function ChargesWidget({
             )
           })
         )}
-        <text
-          x="0"
-          y={86}
-          textAnchor="middle"
-          fill={INK}
-          fontSize="18"
-          fontFamily="Noto Serif SC, serif"
-        >
-          扣费
-        </text>
       </g>
     </g>
   )
@@ -406,80 +395,77 @@ export function ComposeWidget({
             strokeWidth="1.6"
           />
         </g>
-        <text
-          x="-20"
-          y="160"
-          textAnchor="middle"
-          fill={INK}
-          fontSize="18"
-          fontFamily="Noto Serif SC, serif"
-        >
-          记一笔
-        </text>
       </g>
     </g>
   )
 }
 
-export function DeskInk({
-  visible,
-  summary,
-  userName,
+export function SessionWidget({
+  name,
   onLogout,
 }: {
-  visible: boolean
-  summary: string
-  userName?: string
+  name: string
   onLogout: () => void
 }) {
-  if (!visible) return null
+  const down = useRef<{ x: number; y: number } | null>(null)
   return (
-    <g id="desk-ink" pointerEvents="none">
-      <text
-        id="desk-ink-total"
-        x="640"
-        y="51"
-        textAnchor="middle"
-        fill={INK}
-        fontSize="22"
-        fontFamily="Ma Shan Zheng, KaiTi, serif"
-        opacity="0.72"
+    <g
+      id="widget-session-slot"
+      transform={`translate(${SESSION_SLOT.x} ${SESSION_SLOT.y})`}
+    >
+      <g
+        id="widget-session"
+        className="desk-widget session-widget"
+        role="button"
+        tabIndex={0}
+        aria-label={`${name} 退出`}
+        pointerEvents="auto"
+        onPointerDown={(event) => {
+          down.current = { x: event.clientX, y: event.clientY }
+        }}
+        onPointerUp={(event) => {
+          event.stopPropagation()
+          const origin = down.current
+          down.current = null
+          if (!origin) return
+          const distance = Math.hypot(
+            event.clientX - origin.x,
+            event.clientY - origin.y
+          )
+          if (isDrag(distance)) return
+          onLogout()
+        }}
       >
-        {summary}
-      </text>
-      {userName ? (
-        <g
-          id="btn-logout"
-          className="desk-widget"
-          transform="translate(144 688)"
-          pointerEvents="auto"
-          onPointerUp={(event) => {
-            event.stopPropagation()
-            onLogout()
-          }}
+        <rect
+          className="ink-shadow"
+          width={SESSION_FACE.w}
+          height={SESSION_FACE.h}
+          rx="6"
+          fill={PAPER}
+          stroke={INK}
+          strokeWidth="2.2"
+        />
+        <text
+          x={SESSION_FACE.w / 2}
+          y="26"
+          textAnchor="middle"
+          fill={INK}
+          fontSize="16"
+          fontFamily="Noto Serif SC, serif"
         >
-          <rect
-            x="-70"
-            y="-18"
-            width="140"
-            height="32"
-            rx="10"
-            fill="#f6eedc"
-            stroke={INK}
-            strokeWidth="2"
-          />
-          <text
-            x="0"
-            y="6"
-            textAnchor="middle"
-            fill={INK}
-            fontSize="14"
-            fontFamily="Noto Serif SC, serif"
-          >
-            {userName} · 退出
-          </text>
-        </g>
-      ) : null}
+          {abbreviateName(name, 12)}
+        </text>
+        <text
+          x={SESSION_FACE.w / 2}
+          y="46"
+          textAnchor="middle"
+          fill={INK}
+          fontSize="12"
+          fontFamily="Noto Serif SC, serif"
+        >
+          退出
+        </text>
+      </g>
     </g>
   )
 }

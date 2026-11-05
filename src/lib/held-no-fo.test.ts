@@ -9,6 +9,8 @@ describe("compact widget faces have no foreignObject paper", () => {
     expect(widgetsSource).not.toContain("<input")
     expect(widgetsSource).not.toContain("<form")
     expect(widgetsSource).not.toContain("login-control")
+    expect(widgetsSource).not.toContain("btn-logout")
+    expect(widgetsSource).not.toContain("desk-ink-total")
     expect(widgetsSource).not.toContain("更多登录")
     expect(widgetsSource).not.toContain("widget-login")
   })

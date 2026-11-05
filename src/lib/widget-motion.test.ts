@@ -23,6 +23,9 @@ import {
   EXPAND_SOURCE,
   FROM,
   OFF,
+  SESSION_FACE,
+  SESSION_FROM,
+  SESSION_SLOT,
   SLICE_MARGIN,
   STAGE,
   bindWidgetStickers,
@@ -83,6 +86,7 @@ function mountStage(kind: "svg" | "html" | "math" | "none") {
     "widget-charges",
     "widget-compose",
     "widget-auth-github",
+    "widget-session",
     "prop-cup",
     "prop-plant",
     "prop-pen",
@@ -91,7 +95,10 @@ function mountStage(kind: "svg" | "html" | "math" | "none") {
   ]) {
     const node = document.createElementNS("http://www.w3.org/2000/svg", "g")
     node.id = id
-    if (id.startsWith("widget") || id.startsWith("prop-tape")) {
+    if (
+      (id.startsWith("widget") && id !== "widget-session") ||
+      id.startsWith("prop-tape")
+    ) {
       node.setAttribute("data-interactive", "true")
     }
     svg.appendChild(node)
@@ -230,6 +237,27 @@ describe("slice-safe auth placement", () => {
     expect(box.y).toBeGreaterThanOrEqual(edge)
     expect(STAGE.w - box.right).toBeGreaterThanOrEqual(edge)
     expect(STAGE.h - box.bottom).toBeGreaterThanOrEqual(edge)
+    expect(SESSION_FROM).toEqual({ x: -OFF, y: 0 })
+    expect(OFF).toBeGreaterThanOrEqual(480)
+    expect(Math.abs(SESSION_FROM.x)).toBeGreaterThanOrEqual(420)
+    const plate = {
+      x: SESSION_SLOT.x,
+      y: SESSION_SLOT.y,
+      right: SESSION_SLOT.x + SESSION_FACE.w,
+      bottom: SESSION_SLOT.y + SESSION_FACE.h,
+    }
+    expect(SESSION_FACE.w).toBeGreaterThanOrEqual(200)
+    expect(SESSION_FACE.w).toBeLessThanOrEqual(220)
+    expect(SESSION_FACE.h).toBeGreaterThanOrEqual(56)
+    expect(SESSION_FACE.h).toBeLessThanOrEqual(64)
+    expect(plate.x).toBeGreaterThanOrEqual(Math.max(safe.x, edge))
+    expect(plate.y).toBeGreaterThanOrEqual(Math.max(safe.y, edge))
+    expect(plate.right).toBeLessThanOrEqual(
+      Math.min(safe.right, STAGE.w - edge)
+    )
+    expect(plate.bottom).toBeLessThanOrEqual(
+      Math.min(safe.bottom, STAGE.h - edge)
+    )
     const corners = [
       { x: 1116, y: 752, w: 148, h: 36 },
       { x: 924, y: 656, w: 176, h: 48 },
@@ -314,6 +342,9 @@ describe("expand and collapse timelines", () => {
     expect(
       Math.abs(Number(gsap.getProperty("#widget-category", "x")))
     ).toBeGreaterThanOrEqual(420)
+    expect(
+      Number(gsap.getProperty("#widget-session", "x"))
+    ).toBeLessThanOrEqual(-420)
     enter.progress(1)
     expect(done).toBe(true)
     expect(stage.style.pointerEvents).toBe("auto")
@@ -328,6 +359,10 @@ describe("expand and collapse timelines", () => {
       .getTweensOf("#widget-compose")
       .find((tween) => Math.abs(Number(tween.vars.x ?? 0)) >= 420)
     expect(fly).toBeTruthy()
+    const sessionOut = exit
+      .getTweensOf("#widget-session")
+      .find((tween) => Number(tween.vars.x) <= -420)
+    expect(sessionOut?.vars.x).toBe(SESSION_FROM.x)
     exit.progress(1)
     expect(done).toBe(true)
     expect(stage.style.pointerEvents).toBe("auto")
@@ -340,9 +375,20 @@ describe("expand and collapse timelines", () => {
     expect(
       Math.abs(Number(gsap.getProperty("#widget-charges", "x")))
     ).toBeGreaterThanOrEqual(420)
+    expect(
+      Number(gsap.getProperty("#widget-session", "x"))
+    ).toBeLessThanOrEqual(-420)
+    expect(
+      refresh.getTweensOf("#widget-session").some((tween) => tween.vars.x === 0)
+    ).toBe(true)
     refresh.progress(1)
+    expect(Number(gsap.getProperty("#widget-session", "x"))).toBeCloseTo(0)
     poseLoginOnly()
     poseRefreshStart()
+    expect(Number(gsap.getProperty("#widget-session", "x"))).toBe(
+      SESSION_FROM.x
+    )
+    expect(Number(gsap.getProperty("#widget-session", "x"))).not.toBe(0)
     const exit = playExit(null, () => {})
     expect(exit.getTweensOf("#desk-dialog")).toHaveLength(0)
     exit.progress(1)

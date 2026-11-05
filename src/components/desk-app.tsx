@@ -11,7 +11,7 @@ import {
   CategoryWidget,
   ChargesWidget,
   ComposeWidget,
-  DeskInk,
+  SessionWidget,
   SubsWidget,
 } from "@/components/desk-widgets"
 import {
@@ -441,7 +441,6 @@ export function DeskApp({ user }: { user: DeskUser }) {
     createMutation.mutate(payload)
   }
 
-  const onDesk = desk.phase === "desk" || desk.phase === "expanded"
   const summary = formatMonthlyBanner(
     totals?.monthlyRecurring ?? 0,
     activeCurrency
@@ -462,18 +461,15 @@ export function DeskApp({ user }: { user: DeskUser }) {
       <DeskScene onDeskClick={collapse}>
         <AuthLayer onLogin={login} />
         <CategoryWidget slot={slots.category} items={items} />
-        <SubsWidget slot={slots.subs} items={items} />
+        <SubsWidget slot={slots.subs} items={items} monthly={summary} />
         <ChargesWidget slot={slots.charges} charges={charges} />
         <ComposeWidget
           slot={slots.compose}
           idleLine={form.name.trim() || EMPTY_INK.compose}
         />
-        <DeskInk
-          visible={onDesk}
-          summary={summary}
-          userName={activeUser?.name}
-          onLogout={logout}
-        />
+        {activeUser ? (
+          <SessionWidget name={activeUser.name} onLogout={logout} />
+        ) : null}
         <DeskDialogMount
           widget={dialogId}
           items={items}

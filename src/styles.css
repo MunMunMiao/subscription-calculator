@@ -178,7 +178,7 @@
 
 [data-phase="login-only"] .content-widget,
 [data-phase="login-only"] #prop-layer,
-[data-phase="login-only"] #desk-ink {
+[data-phase="login-only"] #widget-session {
   visibility: hidden;
   pointer-events: none;
 }
@@ -315,8 +315,10 @@
   pointer-events: none;
 }
 
-.auth-widget {
+.auth-widget,
+.session-widget {
   cursor: pointer;
+  touch-action: none;
 }
 
 .content-widget {
@@ -326,7 +328,8 @@
 }
 
 .content-widget .ink-shadow,
-.auth-widget .ink-shadow {
+.auth-widget .ink-shadow,
+.session-widget .ink-shadow {
   filter: url(#widgetShadowDesk);
 }
 

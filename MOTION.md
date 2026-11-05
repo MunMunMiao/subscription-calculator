@@ -291,7 +291,8 @@ function playExit(expandedId /* string | null */) {
 }
 ```
 
-触发：`#btn-logout`（或等价登出控件）。  
+触发：`#widget-session` 短按（位移 &lt; 8px）。身份牌不拖。  
+登录后进场，以及已登录刷新，都从左侧画外飞入（`x: -OFF`，`|Δ|≥420`）。退场沿原路飞回左侧画外，飞出结束后才 `autoAlpha: 0`。禁止把牌 `gsap.set` 在左下槽上瞬显，禁止 `#btn-logout` 式角标弹出。  
 **禁**：「只藏内容、登录瞬切出现」；飞出中途 `autoAlpha:0`；登录从 `y:-160` 冒出。
 
 ---
@@ -300,7 +301,8 @@ function playExit(expandedId /* string | null */) {
 
 compact 摘要脸留在槽里。点开后 `#desk-dialog` 是另一张同相机纸卡，不把表单画进 compact SVG。
 
-- **compact**：`desk` 且 `expanded === null` = 总览。四件摘要；顶栏仅 `$X.XX / 月`。无 `foreignObject`。
+- **compact**：`desk` 且 `expanded === null` = 总览。四件摘要；月总只写在订阅本封面上，无顶栏。无件外名牌。无 `foreignObject`。
+- **身份牌**：`#widget-session` 左下纸牌（约 210×60，槽 `translate(176 656)`），落桌影与内容件同档。login-only 不在场。点按走 exit，不拖。登录进场与已登录刷新都从左侧画外飞入，退场飞回左侧，`|Δ|≥420`。
 - **expanded**：点内容 Widget → `expandWidget`。关（`#dialog-close`）/ 点 `#desk-hit` / 再点同一件 → `collapseExpanded`。点另一件仍只展开一个。
 - **Auth**：compact-only。`#widget-auth-github` 闲置停在桌心 `translate(530 368)`，脸约 220×64（包围盒 `530–750 × 368–432`，距 1280×800 四边 ≥80）。仍在切片安全区内，不当角标。
 - **相机**：全程不 transform `#stage`。

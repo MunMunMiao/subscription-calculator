@@ -78,6 +78,13 @@ export const AUTH_SLOTS = {
 
 export const AUTH_GITHUB_FACE = { w: 220, h: 64 } as const
 
+/** Lower-left paper nameplate. Inside the slice inset and ≥80 from the viewBox. */
+export const SESSION_SLOT = { x: 176, y: 656 } as const
+export const SESSION_FACE = { w: 210, h: 60 } as const
+export const SESSION_SELECTOR = "#widget-session"
+/** Left off-canvas. Same magnitude as content (`OFF`), never a slot pop-in. */
+export const SESSION_FROM = { x: -OFF, y: 0 } as const
+
 /** Per-auth-widget off-canvas. From y=368, h=64, y=-840 still clears the camera. */
 export const AUTH_OUT = {
   github: { x: 48, y: -840, rotate: -8 },
@@ -141,6 +148,14 @@ export const FROM = {
   "#widget-compose": { x: OFF, y: 140 },
 } as const
 
+const DESK_FLY = [
+  ...CONTENT_SELECTORS.map((selector) => ({
+    selector,
+    from: FROM[selector],
+  })),
+  { selector: SESSION_SELECTOR, from: SESSION_FROM },
+]
+
 export const WIDGET_FOUR = {
   idle: { y: 0, rotate: 0, scale: 1 },
   hover: { y: -2, rotate: -0.8, scale: 1.01 },
@@ -192,6 +207,11 @@ export function setWidgetState(id: string, state: WidgetFourState) {
   })
 }
 
+function placeSession(values: gsap.TweenVars) {
+  if (!document.getElementById("widget-session")) return
+  gsap.set(SESSION_SELECTOR, values)
+}
+
 function parkDialog() {
   gsap.set("#desk-dialog", {
     autoAlpha: 0,
@@ -217,7 +237,59 @@ export function poseLoginOnly() {
     rotate: 0,
     scale: 1,
   })
+  placeSession({
+    autoAlpha: 0,
+    x: SESSION_FROM.x,
+    y: SESSION_FROM.y,
+    rotate: 0,
+    scale: 1,
+  })
   parkDialog()
+}
+
+function arrive(tl: gsap.core.Timeline, label: string) {
+  DESK_FLY.forEach((item, i) => {
+    tl.fromTo(
+      item.selector,
+      {
+        x: item.from.x,
+        y: item.from.y,
+        rotate: i % 2 ? 5 : -5,
+        scale: 0.96,
+        autoAlpha: 1,
+      },
+      {
+        x: 0,
+        y: 0,
+        rotate: 0,
+        scale: 1,
+        duration: 0.6,
+        ease: "power1.out",
+      },
+      `${label}+=${i * 0.08}`
+    )
+  })
+}
+
+function depart(tl: gsap.core.Timeline, label: string) {
+  DESK_FLY.forEach((item, i) => {
+    tl.to(
+      item.selector,
+      {
+        x: item.from.x,
+        y: item.from.y,
+        rotate: i % 2 ? 6 : -6,
+        autoAlpha: 1,
+        duration: 0.5,
+        ease: "power1.in",
+      },
+      `${label}+=${i * 0.05}`
+    )
+  })
+  tl.set(
+    DESK_FLY.map((item) => item.selector),
+    { autoAlpha: 0 }
+  )
 }
 
 export function poseRefreshStart() {
@@ -228,6 +300,13 @@ export function poseRefreshStart() {
       y: widget.out.y,
     })
   }
+  placeSession({
+    autoAlpha: 1,
+    x: SESSION_FROM.x,
+    y: SESSION_FROM.y,
+    rotate: -5,
+    scale: 0.96,
+  })
   parkDialog()
 }
 
@@ -268,28 +347,7 @@ export function playEnterAfterLogin(onDone: () => void) {
   }
 
   tl.addLabel("flyIn", "loginOut+=0.28")
-  CONTENT_SELECTORS.forEach((sel, i) => {
-    const from = FROM[sel]
-    tl.fromTo(
-      sel,
-      {
-        x: from.x,
-        y: from.y,
-        rotate: i % 2 ? 5 : -5,
-        scale: 0.96,
-        autoAlpha: 1,
-      },
-      {
-        x: 0,
-        y: 0,
-        rotate: 0,
-        scale: 1,
-        duration: 0.6,
-        ease: "power1.out",
-      },
-      `flyIn+=${i * 0.08}`
-    )
-  })
+  arrive(tl, "flyIn")
 
   return skipIfReduce(tl)
 }
@@ -306,28 +364,7 @@ export function playEnterLoggedInRefresh(onDone: () => void) {
   })
 
   tl.addLabel("flyIn")
-  CONTENT_SELECTORS.forEach((sel, i) => {
-    const from = FROM[sel]
-    tl.fromTo(
-      sel,
-      {
-        x: from.x,
-        y: from.y,
-        rotate: i % 2 ? 5 : -5,
-        scale: 0.96,
-        autoAlpha: 1,
-      },
-      {
-        x: 0,
-        y: 0,
-        rotate: 0,
-        scale: 1,
-        duration: 0.6,
-        ease: "power1.out",
-      },
-      `flyIn+=${i * 0.08}`
-    )
-  })
+  arrive(tl, "flyIn")
 
   return skipIfReduce(tl)
 }
@@ -356,22 +393,7 @@ export function playExit(
 
   if (expandedId) tl.add(collapseExpanded(expandedId))
   tl.addLabel("flyOut")
-  CONTENT_SELECTORS.forEach((sel, i) => {
-    const to = FROM[sel]
-    tl.to(
-      sel,
-      {
-        x: to.x,
-        y: to.y,
-        rotate: i % 2 ? 6 : -6,
-        autoAlpha: 1,
-        duration: 0.5,
-        ease: "power1.in",
-      },
-      `flyOut+=${i * 0.05}`
-    )
-  })
-  tl.set(CONTENT_SELECTORS, { autoAlpha: 0 })
+  depart(tl, "flyOut")
 
   tl.addLabel("loginIn", "flyOut+=0.4")
   for (const widget of AUTH_WIDGETS) {

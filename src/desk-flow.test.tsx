@@ -11,10 +11,12 @@ import {
 } from "@/components/desk-app"
 import { Toaster } from "@/components/ui/sonner"
 import { DeskDialogMount, type DialogForm } from "@/components/desk-dialog"
-import { DeskInk, renderAuthWidget } from "@/components/desk-widgets"
+import { renderAuthWidget } from "@/components/desk-widgets"
 import type { AuthWidgetId, ContentWidgetId } from "@/lib/widget-machine"
 import {
   JUST_AUTHED_KEY,
+  SESSION_FACE,
+  SESSION_SLOT,
   SHADOW,
   readTranslate,
   viewBoxPoint,
@@ -189,6 +191,25 @@ function insideVisible(id: string) {
   )
 }
 
+function textLines(id: string) {
+  return [...document.querySelectorAll(`#${id} text`)].map((node) =>
+    (node.textContent ?? "").trim()
+  )
+}
+
+function tweenStartX(selector: string) {
+  const tween = gsap.getTweensOf(selector).at(-1)
+  if (!tween?.parent) return 0
+  const parent = tween.parent
+  const time = parent.time()
+  parent.pause()
+  parent.time(tween.startTime())
+  const x = Number(gsap.getProperty(selector, "x"))
+  parent.time(time)
+  parent.resume()
+  return x
+}
+
 function pointer(
   type: string,
   target: EventTarget,
@@ -361,6 +382,15 @@ describe("PM desk path", () => {
       SHADOW.desk.opacity
     )
     expect(deskDrop?.getAttribute("dx")).toBe("0")
+    expect(document.getElementById("widget-session")).toBeNull()
+    expect(document.getElementById("desk-ink-total")).toBeNull()
+    expect(document.getElementById("btn-logout")).toBeNull()
+    expect(textLines("widget-category")).not.toContain("分类")
+    expect(textLines("widget-subs")).not.toContain("订阅")
+    expect(textLines("widget-charges")).not.toContain("扣费")
+    expect(
+      textLines("widget-compose").filter((line) => line === "记一笔")
+    ).toHaveLength(1)
     for (const id of [
       "widget-category",
       "widget-subs",
@@ -423,6 +453,8 @@ describe("PM desk path", () => {
       .toBeGreaterThan(0)
     expect(travel("#widget-category")).toBeGreaterThanOrEqual(420)
     expect(travel("#widget-auth-github")).toBeGreaterThanOrEqual(420)
+    expect(travel("#widget-session")).toBeGreaterThanOrEqual(420)
+    expect(tweenStartX("#widget-session")).toBeLessThanOrEqual(-420)
     expect(getComputedStyle(document.getElementById("stage")!).transform).toBe(
       "none"
     )
@@ -430,12 +462,26 @@ describe("PM desk path", () => {
     expect(document.getElementById("stage")?.getAttribute("viewBox")).toBe(
       "0 0 1280 800"
     )
-    expect(document.getElementById("desk-ink-total")?.textContent).toMatch(
+    expect(document.getElementById("desk-ink-total")).toBeNull()
+    expect(document.getElementById("btn-logout")).toBeNull()
+    expect(document.getElementById("subs-monthly")?.textContent).toMatch(
       /[$¥]\d+\.\d{2} \/ 月/
     )
-    expect(document.getElementById("desk-ink-total")?.textContent).not.toMatch(
+    expect(document.getElementById("subs-monthly")?.textContent).not.toMatch(
       /iCloud|年/
     )
+    expect(
+      textLines("widget-subs").filter((line) => line.includes("/ 月"))
+    ).toHaveLength(1)
+    expect(
+      textLines("widget-charges").some((line) => line.includes("/ 月"))
+    ).toBe(false)
+    expect(textLines("widget-category")).not.toContain("分类")
+    expect(textLines("widget-subs")).not.toContain("订阅")
+    expect(textLines("widget-charges")).not.toContain("扣费")
+    expect(
+      textLines("widget-compose").filter((line) => line === "记一笔")
+    ).toHaveLength(1)
     expect(document.getElementById("widget-category")?.textContent).toMatch(
       /流媒体|软件|云服务/
     )
@@ -549,10 +595,12 @@ describe("PM desk path", () => {
       ?.dispatchEvent(new PointerEvent("pointerup", { bubbles: true }))
     await waitPhase("desk")
 
-    await css("#widget-category").click()
+    document
+      .getElementById("widget-category")
+      ?.dispatchEvent(new PointerEvent("pointerup", { bubbles: true }))
     await css("#widget-subs").click()
     await expect.poll(() => root().dataset.expanded).toBe("subs")
-    await css("#btn-logout").click()
+    await css("#widget-session").click()
     await waitPhase("exit")
     await expect
       .poll(() => gsap.getTweensOf("#widget-category").length, {
@@ -561,6 +609,11 @@ describe("PM desk path", () => {
       .toBeGreaterThan(0)
     expect(travel("#widget-category")).toBeGreaterThanOrEqual(420)
     expect(travel("#widget-auth-github")).toBeGreaterThanOrEqual(420)
+    expect(
+      gsap
+        .getTweensOf("#widget-session")
+        .some((tween) => Number(tween.vars.x) <= -420)
+    ).toBe(true)
     expect(getComputedStyle(document.getElementById("stage")!).transform).toBe(
       "none"
     )
@@ -757,9 +810,10 @@ describe("PM desk path", () => {
     expect(document.getElementById("widget-charges")?.textContent).toContain(
       "暂无扣费"
     )
-    expect(document.getElementById("desk-ink-total")?.textContent).toContain(
+    expect(document.getElementById("subs-monthly")?.textContent).toContain(
       "$0.00"
     )
+    expect(document.getElementById("desk-ink-total")).toBeNull()
     await css("#widget-category").click()
     expect(document.getElementById("desk-dialog")?.textContent).toContain(
       "暂无分类"
@@ -792,16 +846,86 @@ const emptyForm: DialogForm = {
   status: "active",
 }
 
+describe("session plate", () => {
+  test("refresh flies it in from the left, and only a short press exits", async () => {
+    sessionStorage.removeItem(JUST_AUTHED_KEY)
+    const view = await render(providers(e2ePreviewUser("browse")))
+    expect(root().dataset.from).toBe("session")
+    await expect
+      .poll(() => gsap.getTweensOf("#widget-session").length, { timeout: 2000 })
+      .toBeGreaterThan(0)
+    expect(tweenStartX("#widget-session")).toBeLessThanOrEqual(-420)
+    expect(travel("#widget-session")).toBeGreaterThanOrEqual(420)
+    expect(getComputedStyle(document.getElementById("stage")!).transform).toBe(
+      "none"
+    )
+    await waitPhase("desk")
+    const slot = document.getElementById("widget-session-slot")
+    expect(slot?.getAttribute("transform")).toBe(
+      `translate(${SESSION_SLOT.x} ${SESSION_SLOT.y})`
+    )
+    const face = document.querySelector("#widget-session rect")
+    expect(face?.getAttribute("width")).toBe(String(SESSION_FACE.w))
+    expect(face?.getAttribute("height")).toBe(String(SESSION_FACE.h))
+    expect(face?.classList.contains("ink-shadow")).toBe(true)
+    expect(getComputedStyle(face!).filter).toContain("widgetShadowDesk")
+    expect(
+      Math.abs(Number(gsap.getProperty("#widget-session", "x")))
+    ).toBeLessThan(1)
+    for (const viewport of [
+      [1600, 900],
+      [1024, 768],
+      [1000, 800],
+    ] as const) {
+      await page.viewport(viewport[0], viewport[1])
+      await expect
+        .poll(() => {
+          const node = document.getElementById("widget-session")
+          const box = node?.getBoundingClientRect()
+          const text = node?.querySelector("text")?.getBoundingClientRect()
+          if (!box || !text || box.width < 20 || text.width < 8) return false
+          return [box, text].every(
+            (rect) =>
+              rect.left >= -0.5 &&
+              rect.top >= -0.5 &&
+              rect.right <= window.innerWidth + 0.5 &&
+              rect.bottom <= window.innerHeight + 0.5
+          )
+        })
+        .toBe(true)
+      expect(
+        getComputedStyle(document.getElementById("stage")!).transform
+      ).toBe("none")
+    }
+    const node = document.getElementById("widget-session")!
+    const home = slot?.getAttribute("transform")
+    pointer("pointerup", node, 12, 12)
+    expect(root().dataset.phase).toBe("desk")
+    const rect = node.getBoundingClientRect()
+    pointer("pointerdown", node, rect.left + 10, rect.top + 10)
+    pointer("pointermove", window, rect.left + 40, rect.top + 10)
+    pointer("pointerup", node, rect.left + 36, rect.top + 10)
+    expect(slot?.getAttribute("transform")).toBe(home)
+    expect(root().dataset.phase).toBe("desk")
+    expect(gate.layoutSaves).toEqual([])
+    expect(localStorage.getItem(PREVIEW_LAYOUT_KEY)).toBeNull()
+    pointer("pointerdown", node, rect.left + 10, rect.top + 10)
+    pointer("pointerup", node, rect.left + 14, rect.top + 12)
+    await waitPhase("exit")
+    expect(
+      gsap
+        .getTweensOf("#widget-session")
+        .some((tween) => Number(tween.vars.x) <= -420)
+    ).toBe(true)
+    expect(getComputedStyle(document.getElementById("stage")!).transform).toBe(
+      "none"
+    )
+    await view.unmount()
+  })
+})
+
 describe("dialog paper", () => {
   test("renders every face, including an unknown id", async () => {
-    const ink = await render(
-      <svg>
-        <DeskInk visible summary="$0.00 / 月" onLogout={() => {}} />
-      </svg>
-    )
-    expect(document.getElementById("btn-logout")).toBeNull()
-    await ink.unmount()
-
     const onClose = vi.fn()
     const onEdit = vi.fn()
     const onDelete = vi.fn()
