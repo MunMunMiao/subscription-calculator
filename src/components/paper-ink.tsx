@@ -843,6 +843,8 @@ export function ComposeFace({
         名称
         <input
           className="ink-field"
+          name="name"
+          data-testid="ink-name"
           required
           value={form.name}
           onChange={(event) => update("name", event.target.value)}
@@ -853,6 +855,8 @@ export function ComposeFace({
           金额
           <input
             className="ink-field"
+            name="amount"
+            data-testid="ink-amount"
             type="number"
             min="0"
             step="0.01"

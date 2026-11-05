@@ -20,22 +20,28 @@ import {
   type SubscriptionRecord,
 } from "@/components/paper-ink"
 import { isCategory, type Currency } from "@/lib/catalog"
+import { isE2ePreviewUser } from "@/lib/e2e-preview"
 import { gsap, useGSAP } from "@/lib/gsap"
 import { authClient } from "@/lib/auth-client"
-import { centsToAmount } from "@/lib/money"
+import { centsToAmount, parseAmountToCents } from "@/lib/money"
 import {
   applyScenePose,
   bindStickers,
+  bootScene,
   enterCompose,
   exitCompose,
   JUST_AUTHED_KEY,
   playAmbient,
   playClosing,
+  playInkGrow,
   playOpening,
   playTabFlip,
+  reduceScene,
   tabSelector,
   type BrowseTab,
+  type SceneEvent,
   type SceneName,
+  type SceneSnapshot,
 } from "@/lib/scene"
 import {
   categoryBreakdown,
@@ -70,6 +76,25 @@ function assertNever(value: never): never {
   throw new Error(`Unhandled scene: ${String(value)}`)
 }
 
+function formToRecord(form: FormValues, id: string): SubscriptionRecord {
+  return {
+    id,
+    name: form.name,
+    amountCents: parseAmountToCents(form.amount),
+    currency: form.currency,
+    category: form.category,
+    notes: form.notes.trim() ? form.notes : null,
+    type: form.type,
+    interval: form.type === "recurring" ? form.interval : null,
+    intervalDays:
+      form.type === "recurring" && form.interval === "custom"
+        ? form.intervalDays
+        : null,
+    chargeDate: form.chargeDate,
+    status: form.status,
+  }
+}
+
 function recordToForm(item: SubscriptionRecord): FormValues {
   return {
     name: item.name,
@@ -88,21 +113,33 @@ function recordToForm(item: SubscriptionRecord): FormValues {
 export function DeskApp({ user }: { user: DeskUser }) {
   const rootRef = useRef<HTMLDivElement>(null)
   const queryClient = useQueryClient()
-  const [scene, setScene] = useState<SceneName>(user ? "browse" : "sealed")
-  const [tab, setTab] = useState<BrowseTab>("overview")
+  const [snap, setSnap] = useState<SceneSnapshot>(() =>
+    bootScene({ user: Boolean(user), justAuthed: false })
+  )
   const [returnTab, setReturnTab] = useState<BrowseTab>("overview")
   const [editing, setEditing] = useState<SubscriptionRecord | undefined>()
   const [form, setForm] = useState<FormValues>(EMPTY_FORM)
   const [currency, setCurrency] = useState<Currency>("USD")
   const [now] = useState(() => new Date())
+  const [e2eItems, setE2eItems] = useState<SubscriptionRecord[]>([])
   const prevTab = useRef<BrowseTab>("overview")
-  const locked = scene === "opening" || scene === "closing"
+  const prevScene = useRef<SceneName>(snap.scene)
+  const scene = snap.scene
+  const tab = snap.tab
+  const locked = snap.locked
+  const e2eMode = isE2ePreviewUser(user)
+
+  function dispatch(event: SceneEvent) {
+    setSnap((current) => reduceScene(current, event))
+  }
 
   const listQuery = useQuery({
     ...orpc.subscriptions.list.queryOptions(),
-    enabled: Boolean(user) && scene !== "sealed",
+    enabled: Boolean(user) && scene !== "sealed" && !e2eMode,
   })
-  const items = (listQuery.data ?? []) as SubscriptionRecord[]
+  const items = e2eMode
+    ? e2eItems
+    : ((listQuery.data ?? []) as SubscriptionRecord[])
   const currencies = usedCurrencies(items)
   const activeCurrency = currencies.includes(currency)
     ? currency
@@ -117,18 +154,21 @@ export function DeskApp({ user }: { user: DeskUser }) {
   const invalidate = () =>
     queryClient.invalidateQueries({ queryKey: orpc.subscriptions.key() })
 
+  function settleSavedCompose() {
+    const tl = exitCompose(true)
+    tl.eventCallback("onComplete", () => {
+      dispatch({ type: "compose-saved", tab: returnTab })
+    })
+  }
+
   const createMutation = useMutation(
     orpc.subscriptions.create.mutationOptions({
       onSuccess: async () => {
         toast.success("已记下")
         setEditing(undefined)
         setForm(EMPTY_FORM)
-        const tl = exitCompose(true)
-        tl.eventCallback("onComplete", () => {
-          setTab(returnTab)
-          setScene("browse")
-        })
         await invalidate()
+        settleSavedCompose()
       },
       onError: (error) => toast.error(error.message),
     })
@@ -140,12 +180,8 @@ export function DeskApp({ user }: { user: DeskUser }) {
         toast.success("已更新")
         setEditing(undefined)
         setForm(EMPTY_FORM)
-        const tl = exitCompose(true)
-        tl.eventCallback("onComplete", () => {
-          setTab(returnTab)
-          setScene("browse")
-        })
         await invalidate()
+        settleSavedCompose()
       },
       onError: (error) => toast.error(error.message),
     })
@@ -176,7 +212,7 @@ export function DeskApp({ user }: { user: DeskUser }) {
     if (!user) return
     if (sessionStorage.getItem(JUST_AUTHED_KEY) !== "1") return
     sessionStorage.removeItem(JUST_AUTHED_KEY)
-    const id = window.setTimeout(() => setScene("opening"), 0)
+    const id = window.setTimeout(() => dispatch({ type: "login-success" }), 0)
     return () => window.clearTimeout(id)
   }, [user])
 
@@ -252,14 +288,13 @@ export function DeskApp({ user }: { user: DeskUser }) {
       applyScenePose(scene)
       if (scene === "opening") {
         const tl = playOpening(() => {
-          setTab("overview")
-          setScene("browse")
+          dispatch({ type: "opening-done" })
         })
         return () => tl.kill()
       }
       if (scene === "closing") {
         const tl = playClosing(() => {
-          setScene("sealed")
+          dispatch({ type: "closing-done" })
           void authClient.signOut().then(() => {
             window.location.assign("/")
           })
@@ -276,18 +311,29 @@ export function DeskApp({ user }: { user: DeskUser }) {
 
   useGSAP(
     () => {
+      if (scene === "browse" && prevScene.current === "compose") {
+        prevScene.current = scene
+        prevTab.current = tab
+        const tl = playInkGrow()
+        return () => tl.kill()
+      }
       if (scene !== "browse") {
+        prevScene.current = scene
         prevTab.current = tab
         return
       }
-      if (prevTab.current === tab) return
-      const from = tabSelector(prevTab.current)
-      const to = tabSelector(tab)
+      if (prevTab.current !== tab) {
+        const from = tabSelector(prevTab.current)
+        const to = tabSelector(tab)
+        prevTab.current = tab
+        prevScene.current = scene
+        const tl = playTabFlip(from, to, playInkGrow)
+        return () => tl.kill()
+      }
+      prevScene.current = scene
       prevTab.current = tab
-      const tl = playTabFlip(from, to, () => undefined)
-      return () => tl.kill()
     },
-    { scope: rootRef, dependencies: [tab, scene] }
+    { scope: rootRef, dependencies: [tab, scene, items] }
   )
 
   function login() {
@@ -300,14 +346,11 @@ export function DeskApp({ user }: { user: DeskUser }) {
   }
 
   function logout() {
-    if (locked) return
-    setScene("closing")
+    dispatch({ type: "logout" })
   }
 
   function goTab(next: BrowseTab) {
-    if (locked) return
-    setTab(next)
-    setScene("browse")
+    dispatch({ type: "tab", tab: next })
   }
 
   function goCompose() {
@@ -315,7 +358,7 @@ export function DeskApp({ user }: { user: DeskUser }) {
     if (scene === "browse") setReturnTab(tab)
     setEditing(undefined)
     setForm(EMPTY_FORM)
-    setScene("compose")
+    dispatch({ type: "compose" })
   }
 
   function openEdit(item: SubscriptionRecord) {
@@ -323,7 +366,7 @@ export function DeskApp({ user }: { user: DeskUser }) {
     if (scene === "browse") setReturnTab(tab)
     setEditing(item)
     setForm(recordToForm(item))
-    setScene("compose")
+    dispatch({ type: "compose" })
   }
 
   function cancelCompose() {
@@ -331,8 +374,7 @@ export function DeskApp({ user }: { user: DeskUser }) {
     tl.eventCallback("onComplete", () => {
       setEditing(undefined)
       setForm(EMPTY_FORM)
-      setTab(returnTab)
-      setScene("browse")
+      dispatch({ type: "compose-cancel", tab: returnTab })
     })
   }
 
@@ -352,6 +394,19 @@ export function DeskApp({ user }: { user: DeskUser }) {
           : null,
       chargeDate: form.chargeDate,
       status: form.status,
+    }
+    if (e2eMode) {
+      const record = formToRecord(form, editing?.id ?? crypto.randomUUID())
+      setE2eItems((current) =>
+        editing
+          ? current.map((item) => (item.id === record.id ? record : item))
+          : [...current, record]
+      )
+      toast.success(editing ? "已更新" : "已记下")
+      setEditing(undefined)
+      setForm(EMPTY_FORM)
+      settleSavedCompose()
+      return
     }
     if (editing) {
       updateMutation.mutate({ ...payload, id: editing.id })
@@ -376,7 +431,7 @@ export function DeskApp({ user }: { user: DeskUser }) {
           case "overview":
             return (
               <SceneSummary
-                loading={listQuery.isLoading}
+                loading={!e2eMode && listQuery.isLoading}
                 items={items}
                 totals={totals}
                 currency={activeCurrency}
@@ -390,7 +445,7 @@ export function DeskApp({ user }: { user: DeskUser }) {
           case "category":
             return (
               <SceneChart
-                loading={listQuery.isLoading}
+                loading={!e2eMode && listQuery.isLoading}
                 slices={slices}
                 forecast={forecast}
                 currency={activeCurrency}
@@ -399,7 +454,7 @@ export function DeskApp({ user }: { user: DeskUser }) {
           case "subs":
             return (
               <SceneList
-                loading={listQuery.isLoading}
+                loading={!e2eMode && listQuery.isLoading}
                 items={items}
                 onEdit={openEdit}
                 onDelete={(item) => {
@@ -414,7 +469,10 @@ export function DeskApp({ user }: { user: DeskUser }) {
             )
           case "charges":
             return (
-              <SceneUpcoming loading={listQuery.isLoading} charges={charges} />
+              <SceneUpcoming
+                loading={!e2eMode && listQuery.isLoading}
+                charges={charges}
+              />
             )
           default:
             return assertNever(tab)
@@ -448,7 +506,10 @@ export function DeskApp({ user }: { user: DeskUser }) {
     <div
       ref={rootRef}
       className={`desk-root${locked ? " is-scene-locked" : ""}`}
+      data-testid="desk-root"
       data-scene={scene}
+      data-tab={tab}
+      data-locked={locked ? "true" : "false"}
     >
       <DeskScene cover={<SceneLanding onLogin={login} />}>
         {showChrome || scene === "opening" || scene === "closing" ? (
@@ -464,7 +525,9 @@ export function DeskApp({ user }: { user: DeskUser }) {
           className="entity-motion"
           clipPath="url(#page-ink-clip)"
         >
-          {renderInk()}
+          <g id="ink-swap" data-ink-state="idle">
+            {renderInk()}
+          </g>
         </g>
         {showChrome ? (
           <SceneFooter name={user?.name ?? ""} onLogout={logout} />

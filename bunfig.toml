@@ -7,6 +7,9 @@
 # breaks the Cloudflare Vite plugin's miniflare type handshake).
 shell = "bun"
 
+[test]
+root = "./src"
+
 [fmt]
 printWidth = 80
 semi = false

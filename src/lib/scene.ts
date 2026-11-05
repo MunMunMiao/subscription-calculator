@@ -1,10 +1,28 @@
 import { gsap } from "@/lib/gsap"
+import {
+  SECONDARY_TAPE_SELECTORS,
+  type BrowseTab,
+  type SceneName,
+  type StickerState,
+} from "@/lib/scene-machine"
 
-export type SceneName = "sealed" | "opening" | "closing" | "browse" | "compose"
-
-export type BrowseTab = "overview" | "category" | "subs" | "charges"
-
-export type StickerState = "idle" | "hover" | "act" | "settle"
+export type {
+  BrowseTab,
+  InkGrowState,
+  SceneEvent,
+  SceneName,
+  SceneSnapshot,
+  StickerState,
+} from "@/lib/scene-machine"
+export {
+  INK_GROW_STATES,
+  SECONDARY_TAPE_IDS,
+  SECONDARY_TAPE_SELECTORS,
+  STICKER_FOUR_STATES,
+  bootScene,
+  isSceneLocked,
+  reduceScene,
+} from "@/lib/scene-machine"
 
 export const JUST_AUTHED_KEY = "techo-just-authed"
 
@@ -20,12 +38,6 @@ export const STICKER_S = {
   act: 0.2,
   settle: 0.52,
 } as const
-
-const SECONDARY_TAPES = [
-  "#prop-tape-floral",
-  "#prop-tape-blue",
-  "#prop-tape-gingham",
-] as const
 
 const TAB_IDS = [
   "#tab-overview",
@@ -214,7 +226,7 @@ export function playOpening(onDone: () => void) {
       "peel"
     )
     .to(
-      motionTargets(SECONDARY_TAPES),
+      motionTargets(SECONDARY_TAPE_SELECTORS),
       { y: -6, rotation: -4, duration: 0.45, stagger: 0.04 },
       "peel+=0.05"
     )
@@ -250,7 +262,7 @@ export function playOpening(onDone: () => void) {
     )
     .to(motionTarget("#prop-tape"), { ...STICKER.idle, duration: 0.4 }, "tabs")
     .to(
-      motionTargets(SECONDARY_TAPES),
+      motionTargets(SECONDARY_TAPE_SELECTORS),
       { ...STICKER.idle, duration: 0.4, stagger: 0.03 },
       "tabs"
     )
@@ -275,12 +287,13 @@ export function playClosing(onDone: () => void) {
       { scale: 1, y: 0, rotation: 0, duration: 0.3 },
       "tabsIn"
     )
-    .to(
-      "#page foreignObject, #compose-form",
-      { autoAlpha: 0, duration: 0.25 },
-      "tabsIn"
-    )
-    .addLabel("close", "tabsIn+=0.25")
+  const composeBits = gsap.utils.toArray<Element>(
+    "#page foreignObject, #compose-form"
+  )
+  if (composeBits.length) {
+    tl.to(composeBits, { autoAlpha: 0, duration: 0.25 }, "tabsIn")
+  }
+  tl.addLabel("close", "tabsIn+=0.25")
     .set("#book-cover", { autoAlpha: 1, rotationY: -105 })
     .to(
       "#book-cover",
@@ -299,7 +312,7 @@ export function playClosing(onDone: () => void) {
       "tape"
     )
     .to(
-      motionTargets(SECONDARY_TAPES),
+      motionTargets(SECONDARY_TAPE_SELECTORS),
       { y: 0, rotation: 0, duration: 0.45, stagger: 0.03 },
       "tape+=0.05"
     )
@@ -308,7 +321,34 @@ export function playClosing(onDone: () => void) {
   return skipIfReduce(tl)
 }
 
-export function playTabFlip(fromId: string, toId: string, inkSwap: () => void) {
+export function playInkGrow() {
+  const swap = el("#ink-swap")
+  if (!swap) return gsap.timeline()
+  swap.setAttribute("data-ink-state", "growing")
+  const inner = gsap.utils.toArray<Element>(
+    "#ink-swap #ink-empty, #ink-swap [id^='list-']"
+  )
+  const bits = inner.length ? inner : [swap]
+  gsap.set(bits, { transformOrigin: "50% 0%" })
+  const tl = gsap.timeline({
+    defaults: { ease: "power1.out" },
+    onComplete: () => {
+      swap.setAttribute("data-ink-state", "grown")
+    },
+  })
+  tl.fromTo(
+    bits,
+    { scaleY: 0.08, y: 16 },
+    { scaleY: 1, y: 0, duration: 0.55, stagger: 0.045 }
+  )
+  return skipIfReduce(tl)
+}
+
+export function playTabFlip(
+  fromId: string,
+  toId: string,
+  inkSwap: () => void = playInkGrow
+) {
   const tl = gsap.timeline({ defaults: { ease: "power2.inOut" } })
   const fromNode = el(fromId)
   const toNode = el(toId)
@@ -328,15 +368,9 @@ export function playTabFlip(fromId: string, toId: string, inkSwap: () => void) {
     toNode.setAttribute("data-state", "settle")
     toNode.setAttribute("data-rest", "settle")
   }
-  tl.add(inkSwap, "<0.1")
-  const inkBits = gsap.utils.toArray<Element>("#ink-empty, [id^='list-']")
-  if (inkBits.length) {
-    tl.from(
-      inkBits,
-      { y: 8, duration: 0.4, ease: "power1.out", stagger: 0.03 },
-      "<"
-    )
-  }
+  tl.add(() => {
+    inkSwap()
+  }, "<0.1")
   return skipIfReduce(tl)
 }
 
@@ -348,7 +382,7 @@ export function enterCompose() {
     rotation: "-=4",
     duration: 0.45,
   }).to(
-    motionTargets([...SECONDARY_TAPES, "#prop-cup", "#prop-plant"]),
+    motionTargets([...SECONDARY_TAPE_SELECTORS, "#prop-cup", "#prop-plant"]),
     { x: "+=8", duration: 0.5 },
     "<"
   )
@@ -367,7 +401,7 @@ export function enterCompose() {
   return skipIfReduce(tl)
 }
 
-export function exitCompose(_saved: boolean) {
+export function exitCompose(saved: boolean) {
   const tl = gsap.timeline({ defaults: { ease: "power2.inOut" } })
   tl.to("#page foreignObject, #compose-form", {
     autoAlpha: 0,
@@ -380,7 +414,7 @@ export function exitCompose(_saved: boolean) {
       "<"
     )
     .to(
-      motionTargets([...SECONDARY_TAPES, "#prop-cup", "#prop-plant"]),
+      motionTargets([...SECONDARY_TAPE_SELECTORS, "#prop-cup", "#prop-plant"]),
       { x: 0, duration: 0.45 },
       "<"
     )
@@ -389,6 +423,10 @@ export function exitCompose(_saved: boolean) {
     tl.to(motionOf(record), { ...STICKER.idle, duration: 0.35 }, "<")
     record.setAttribute("data-state", "idle")
     record.setAttribute("data-rest", "idle")
+  }
+  if (saved) {
+    const swap = el("#ink-swap")
+    swap?.setAttribute("data-ink-state", "idle")
   }
   return skipIfReduce(tl)
 }
