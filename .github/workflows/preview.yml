@@ -28,26 +28,77 @@ jobs:
         run: bun run build
         env:
           VITE_TECHO_E2E: "1"
+      - id: cf
+        name: Enable workers.dev Preview URLs (keep production workers.dev as-is)
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          set -euo pipefail
+          api="https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}"
+          current="$(curl -fsS \
+            -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
+            -H "Content-Type: application/json" \
+            "${api}/workers/scripts/subscription-calculator/subdomain")"
+          printf '%s\n' "$current"
+          enabled="$(printf '%s' "$current" | jq -c '.result.enabled')"
+          curl -fsS -X POST \
+            -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
+            -H "Content-Type: application/json" \
+            -H "Cloudflare-Workers-Script-Api-Date: 2025-08-01" \
+            "${api}/workers/scripts/subscription-calculator/subdomain" \
+            --data "$(jq -n --argjson enabled "$enabled" '{enabled: $enabled, previews_enabled: true}')"
+          subdomain="$(curl -fsS \
+            -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
+            "${api}/workers/subdomain" | jq -r '.result.subdomain')"
+          echo "subdomain=$subdomain" >> "$GITHUB_OUTPUT"
       - id: preview
         name: Create or update Preview
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          PR: ${{ github.event.pull_request.number }}
+          WORKERS_SUBDOMAIN: ${{ steps.cf.outputs.subdomain }}
         run: |
-          set -o pipefail
+          set -euo pipefail
           cat > /tmp/preview.secrets.env <<'EOF'
           BETTER_AUTH_SECRET=preview-not-production
           GITHUB_CLIENT_ID=preview
           GITHUB_CLIENT_SECRET=preview
           EOF
-          output="$(bunx wrangler preview \
-            --name "pr-${{ github.event.pull_request.number }}" \
+          set +e
+          bunx wrangler preview \
+            --name "pr-${PR}" \
             --ignore-base-config \
             --secrets-file /tmp/preview.secrets.env \
-            --json)"
-          printf '%s\n' "$output"
-          preview_url="$(printf '%s' "$output" | jq -er '.preview.urls[0] // .preview_urls[0] // .deployment.urls[0] // .deployment_urls[0]')"
+            --json > /tmp/wrangler-preview.out 2>/tmp/wrangler-preview.err
+          status=$?
+          set -e
+          cat /tmp/wrangler-preview.err
+          cat /tmp/wrangler-preview.out
+          if [ "$status" -ne 0 ]; then
+            exit "$status"
+          fi
+          preview_url="$(python3 - <<'PY'
+          import json, pathlib
+          text = pathlib.Path("/tmp/wrangler-preview.out").read_text()
+          err = pathlib.Path("/tmp/wrangler-preview.err").read_text()
+          blob = text if "{" in text else err
+          idx = blob.rfind("\n{")
+          raw = blob[idx + 1 :] if idx >= 0 else blob[blob.find("{") :]
+          obj = json.loads(raw)
+          urls = list((obj.get("preview") or {}).get("urls") or [])
+          urls += list((obj.get("deployment") or {}).get("urls") or [])
+          urls += list(obj.get("preview_urls") or [])
+          urls += list(obj.get("deployment_urls") or [])
+          print(next((u for u in urls if u), ""))
+          PY
+          )"
+          if [ -z "$preview_url" ]; then
+            preview_url="https://pr-${PR}-subscription-calculator.${WORKERS_SUBDOMAIN}.workers.dev"
+            echo "Wrangler returned no Preview URL; falling back to ${preview_url}"
+          fi
           echo "preview_url=$preview_url" >> "$GITHUB_OUTPUT"
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
       - name: Probe Preview
         run: curl --fail --show-error --silent --output /dev/null --write-out "%{http_code}\n" "$PREVIEW_URL/"
         env:
