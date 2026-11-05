@@ -27,4 +27,15 @@
   "vars": {
     "BETTER_AUTH_URL": "https://orbit.lyz.cloud",
   },
+  // Previews do not inherit production routes or D1. Do not put
+  // orbit.lyz.cloud here — Previews are workers.dev URLs via `wrangler preview`.
+  "previews": {
+    "vars": {
+      "BETTER_AUTH_URL": "https://preview.invalid",
+      "TECHO_PREVIEW": "1",
+    },
+    "define": {
+      "import.meta.env.VITE_TECHO_E2E": "\"1\"",
+    },
+  },
 }

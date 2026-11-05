@@ -109,6 +109,15 @@ bun run test:e2e
 
 Preview a production build locally with `bun run preview` (Workers runtime via the Cloudflare Vite plugin).
 
+## Pull request Previews
+
+Same-repo PRs get a Cloudflare **Workers Preview** (`wrangler preview`, not `wrangler deploy`). Production `orbit.lyz.cloud` is untouched. D1 is not bound on Preview, so it cannot write production rows.
+
+The Preview workflow builds with `VITE_TECHO_E2E=1`. After the bot comments the URL:
+
+- Sealed landing: `https://<preview>/`
+- Cut签 / 记一笔 / 墨迹: `https://<preview>/?e2e=browse` (in-memory session; GitHub OAuth is not wired)
+
 ## Architecture
 
 | Layer           | Location                                                        |
