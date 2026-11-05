@@ -12,6 +12,14 @@ import { toast } from "sonner"
 
 import { DeskScene } from "@/components/desk-scene"
 import {
+  TECHO_TABS,
+  TechoBrandMark,
+  TechoLogoutButton,
+  TechoSampleButton,
+  TechoTabButton,
+  TechoWriteButton,
+} from "@/components/techo-controls"
+import {
   CATEGORIES,
   CURRENCIES,
   INTERVALS,
@@ -68,14 +76,6 @@ type FormValues = {
   chargeDate: string
   status: Status
 }
-
-const TABS: Array<{ mode: Exclude<PaperMode, "landing">; label: string }> = [
-  { mode: "summary", label: "总览" },
-  { mode: "chart", label: "分类" },
-  { mode: "list", label: "订阅" },
-  { mode: "upcoming", label: "扣费" },
-  { mode: "compose", label: "记一笔" },
-]
 
 const EMPTY_FORM: FormValues = {
   name: "",
@@ -439,26 +439,22 @@ export function DeskApp({ user }: { user: DeskUser }) {
       <div className="paper-layer">
         <div className="paper-slot">
           {user ? (
-            <nav className="washi-tabs" aria-label="手帐分页">
-              {TABS.map((tab) => (
-                <button
+            <nav className="techo-tabs" aria-label="手帐分页">
+              {TECHO_TABS.map((tab) => (
+                <TechoTabButton
                   key={tab.mode}
-                  type="button"
-                  className={`washi-tab washi-tab-${tab.mode}${mode === tab.mode ? " is-active" : ""}`}
+                  mode={tab.mode}
+                  active={mode === tab.mode}
                   onClick={() => go(tab.mode)}
-                >
-                  {tab.label}
-                </button>
+                />
               ))}
             </nav>
           ) : null}
           <div className="paper-face">{renderFace()}</div>
           {user ? (
             <footer className="paper-footer">
-              <span>{user.name}</span>
-              <button type="button" className="ink-text-btn" onClick={logout}>
-                退出
-              </button>
+              <TechoBrandMark name={user.name || "MunMunMiao"} />
+              <TechoLogoutButton onClick={logout} />
             </footer>
           ) : null}
         </div>
@@ -518,17 +514,12 @@ function EmptyInk({
     <div className="empty-ink">
       <p>还没有记录</p>
       <div className="ink-row">
-        <button type="button" className="ink-btn" onClick={onCompose}>
-          记一笔
-        </button>
-        <button
-          type="button"
-          className="ink-btn ink-btn-ghost"
+        <TechoWriteButton onClick={onCompose} />
+        <TechoSampleButton
+          label={seeding ? "载入中…" : "载入示例"}
           onClick={onSeed}
           disabled={seeding}
-        >
-          {seeding ? "载入中…" : "载入示例"}
-        </button>
+        />
       </div>
     </div>
   )

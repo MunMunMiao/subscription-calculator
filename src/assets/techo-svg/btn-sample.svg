@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="46" viewBox="0 0 128 46" fill="none">
+  <path d="M9 10C11.8 5.8 26 4 44 3.7L96 3.4C110 3.2 117 6.2 118.5 11.5L119.8 31.5C120.3 37 112 40.8 94 41.2L32 41.8C15 42.2 6.5 38 5.8 32L9 10Z"
+        fill="#F4EFE6" stroke="#D9CFC0" stroke-width="1" stroke-linejoin="round"/>
+  <text x="64" y="27" text-anchor="middle" font-family="Georgia,'Songti SC',serif" font-size="14" fill="currentColor">载入示例</text>
+</svg>

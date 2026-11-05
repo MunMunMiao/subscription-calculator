@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="76" height="30" viewBox="0 0 76 30" fill="none">
+  <g transform="rotate(-0.8 38 15)">
+    <path d="M3.5 5.5C4.4 3 9.5 1.9 16.5 1.7L63 1.4C69.2 1.3 72.8 3.2 73.3 6.9L74 23.2C74.3 26.5 70.8 28.6 64 28.8L11.5 29.2C5.8 29.4 2.8 26.9 2.6 23.3L3.5 5.5Z"
+          fill="#F2EAD8" stroke="#D9CFC0" stroke-width="1" stroke-linejoin="round"/>
+  </g>
+  <text x="38" y="18.5" text-anchor="middle" font-family="Georgia,'Songti SC',serif" font-size="11" fill="currentColor">订阅</text>
+</svg>

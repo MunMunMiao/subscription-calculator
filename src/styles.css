@@ -179,41 +179,86 @@
   box-sizing: border-box;
 }
 
-.washi-tabs {
+.techo-tabs {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.35rem;
-  margin-bottom: 0.55rem;
+  align-items: center;
+  gap: 0.12rem;
+  margin-bottom: 0.35rem;
 }
 
-.washi-tab {
-  border: 1.8px solid #2a2118;
-  background: #f3ead3;
-  color: #2a2118;
-  font: inherit;
-  font-size: 0.78rem;
-  padding: 0.18rem 0.55rem;
+.techo-mark {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: #3d3429;
   cursor: pointer;
-  transform: rotate(-1.5deg);
+  line-height: 0;
+  box-shadow: none;
 }
 
-.washi-tab-summary {
-  background: #f4d5dc;
+.techo-mark svg {
+  display: block;
+  overflow: visible;
 }
-.washi-tab-chart {
-  background: #d7ead0;
+
+.techo-tab svg {
+  width: 4.75rem;
+  height: auto;
 }
-.washi-tab-list {
-  background: #d7e8f3;
+
+.techo-btn svg {
+  width: 8rem;
+  height: auto;
 }
-.washi-tab-upcoming {
-  background: #f3e3c2;
+
+.techo-brand {
+  display: inline-flex;
+  color: #3d3429;
+  line-height: 0;
 }
-.washi-tab-compose {
-  background: #efe4cc;
+
+.techo-brand svg {
+  width: 10.5rem;
+  height: auto;
+  display: block;
+  overflow: visible;
 }
-.washi-tab.is-active {
-  box-shadow: 2px 2px 0 #2a2118;
+
+.techo-logout svg {
+  width: 3.75rem;
+  height: auto;
+}
+
+.techo-mark:hover:not(:disabled) {
+  color: #2a2118;
+}
+
+.techo-tab[data-active="true"] {
+  color: #2a2118;
+}
+
+.techo-tab[data-active="true"] path {
+  fill: #eadcc8;
+}
+
+.techo-mark:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.techo-mark:focus {
+  outline: none;
+}
+
+.techo-mark:focus-visible {
+  outline: 1.5px solid #c4a484;
+  outline-offset: 3px;
 }
 
 .paper-face {
@@ -225,10 +270,8 @@
 .paper-footer {
   display: flex;
   justify-content: space-between;
-  align-items: baseline;
-  margin-top: 0.4rem;
-  font-size: 0.78rem;
-  color: #5c4a38;
+  align-items: center;
+  margin-top: 0.2rem;
 }
 
 .cover-face {

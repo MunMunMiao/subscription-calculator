@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="76" height="30" viewBox="0 0 76 30" fill="none">
+  <g transform="rotate(-1.1 38 15)">
+    <path d="M3.6 5.9C4.5 3.3 9.8 2 16.8 1.8L62.5 1.5C68.8 1.4 72.5 3.3 73 7L73.7 23.1C74 26.4 70.5 28.5 63.6 28.7L12 29.1C6 29.3 2.9 26.8 2.7 23.3L3.6 5.9Z"
+          fill="#F1E9D9" stroke="#D9CFC0" stroke-width="1" stroke-linejoin="round"/>
+  </g>
+  <text x="38" y="18.5" text-anchor="middle" font-family="Georgia,'Songti SC',serif" font-size="11" fill="currentColor">记一笔</text>
+</svg>

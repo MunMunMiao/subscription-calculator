@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="60" height="30" viewBox="0 0 60 30" fill="none">
+  <path d="M7.2 7C9 4.5 16.5 3.2 26 3.1L44 3.4C52 3.6 54.5 6.2 54 11L53.2 20.5C52.7 25 48.5 27.2 39.5 27.4L17 27.2C9.5 27 5.8 24.2 6.1 19.2L7.2 7Z"
+        fill="#F4EFE6" stroke="#D9CFC0" stroke-width="1" stroke-linejoin="round"/>
+  <text x="30" y="18.5" text-anchor="middle" font-family="Georgia,'Songti SC',serif" font-size="12" fill="currentColor">退出</text>
+</svg>
