@@ -297,7 +297,7 @@ export function DeskApp({ user }: { user: DeskUser }) {
   function submitForm(event?: FormEvent) {
     event?.preventDefault()
     const payload = {
-      name: form.name,
+      name: form.name.trim() || "新订阅",
       amount: form.amount,
       currency: form.currency,
       category: form.category,

@@ -1,4 +1,4 @@
-import { useState, type FormEvent, type ReactNode } from "react"
+import { useState, type ReactNode } from "react"
 
 import {
   CATEGORIES,
@@ -710,54 +710,42 @@ export function ComposeHeldInk({
     ...CATEGORIES.filter((item) => item === form.category),
     ...CATEGORIES.filter((item) => item !== form.category),
   ].slice(0, 8)
+  const nameLine = form.name.trim() || "名称"
+  const amountLine =
+    Number.isFinite(form.amount) && form.amount > 0
+      ? compactAmount(Math.round(form.amount * 100), form.currency)
+      : "金额"
+  const dateLine = form.chargeDate || "下次扣费"
 
   return (
     <g>
-      <foreignObject
-        x={-96}
-        y={-98}
-        width={192}
-        height={66}
-        className="compose-face"
-        fill="none"
-        pointerEvents="auto"
-        onPointerUp={(event) => event.stopPropagation()}
+      <text
+        x="-90"
+        y="-84"
+        fill={INK}
+        fontSize="15"
+        fontFamily="Noto Serif SC, serif"
       >
-        <form
-          className="compose-lines"
-          onSubmit={(event: FormEvent) => {
-            event.preventDefault()
-            onSubmit()
-          }}
-        >
-          <input
-            aria-label="名称"
-            placeholder="名称"
-            required
-            value={form.name}
-            onChange={(event) => onChange({ name: event.target.value })}
-          />
-          <input
-            aria-label="金额"
-            placeholder="金额"
-            inputMode="decimal"
-            required
-            value={Number.isFinite(form.amount) ? String(form.amount) : "0"}
-            onChange={(event) =>
-              onChange({
-                amount: Number.parseFloat(event.target.value) || 0,
-              })
-            }
-          />
-          <input
-            aria-label="下次扣费"
-            placeholder="YYYY-MM-DD"
-            required
-            value={form.chargeDate}
-            onChange={(event) => onChange({ chargeDate: event.target.value })}
-          />
-        </form>
-      </foreignObject>
+        {nameLine}
+      </text>
+      <text
+        x="-90"
+        y="-64"
+        fill={INK}
+        fontSize="15"
+        fontFamily="Noto Serif SC, serif"
+      >
+        {amountLine}
+      </text>
+      <text
+        x="-90"
+        y="-44"
+        fill={INK}
+        fontSize="15"
+        fontFamily="Noto Serif SC, serif"
+      >
+        {dateLine}
+      </text>
       <InkChip
         x={-54}
         y={-18}

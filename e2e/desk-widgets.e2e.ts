@@ -73,10 +73,13 @@ test.describe("Widget desk smoke", () => {
     await expect(page.locator("#widget-subs foreignObject")).toHaveCount(0)
     await expect(page.locator("#widget-charges foreignObject")).toHaveCount(0)
     await expect(page.locator("#widget-compose foreignObject")).toHaveCount(0)
+    await expect(page.locator(".widget-face")).toHaveCount(0)
 
     await page.locator("#widget-category").click()
     await expect(root).toHaveAttribute("data-phase", "held")
     await expect(root).toHaveAttribute("data-held", "category")
+    await expect(page.locator("#widget-category foreignObject")).toHaveCount(0)
+    await expect(page.locator(".widget-face")).toHaveCount(0)
 
     const hit = page.locator("#desk-hit")
     const box = await hit.boundingBox()
@@ -132,6 +135,8 @@ test.describe("Widget desk smoke", () => {
     expect(box).toBeTruthy()
     await page.mouse.click(box!.x + box!.width * 0.45, box!.y + 16)
     await expect(root).toHaveAttribute("data-held", "subs")
+    await expect(page.locator("#widget-subs foreignObject")).toHaveCount(0)
+    await expect(page.locator(".widget-face")).toHaveCount(0)
   })
 
   test("compose pick-up / put-down leaves the pen in its slot", async ({
@@ -154,10 +159,26 @@ test.describe("Widget desk smoke", () => {
     for (let i = 0; i < 2; i++) {
       await page.locator("#widget-compose").click()
       await expect(root).toHaveAttribute("data-held", "compose")
-      await expect(
-        page.locator("#widget-compose foreignObject.compose-face")
-      ).toHaveCount(1)
-      await expect(page.locator(".widget-face.is-open")).toHaveCount(0)
+      await expect(page.locator("#widget-compose foreignObject")).toHaveCount(0)
+      await expect(page.locator(".widget-face")).toHaveCount(0)
+      await expect(page.locator("#widget-compose")).toContainText(
+        /保存|更新|返回/
+      )
+      const hasScroller = await page
+        .locator("#widget-compose")
+        .evaluate((node) => {
+          const all = [node, ...Array.from(node.querySelectorAll("*"))]
+          return all.some((el) => {
+            const style = getComputedStyle(el)
+            return (
+              style.overflow === "auto" ||
+              style.overflow === "scroll" ||
+              style.overflowY === "auto" ||
+              style.overflowY === "scroll"
+            )
+          })
+        })
+      expect(hasScroller).toBe(false)
       await page.mouse.click(
         deskBox!.x + deskBox!.width * 0.5,
         deskBox!.y + deskBox!.height * 0.42
