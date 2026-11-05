@@ -13,15 +13,24 @@ import { Toaster } from "@/components/ui/sonner"
 import { DeskDialogMount, type DialogForm } from "@/components/desk-dialog"
 import { DeskInk, renderAuthWidget } from "@/components/desk-widgets"
 import type { AuthWidgetId, ContentWidgetId } from "@/lib/widget-machine"
-import { JUST_AUTHED_KEY } from "@/lib/widget-motion"
+import {
+  JUST_AUTHED_KEY,
+  SHADOW,
+  readTranslate,
+  viewBoxPoint,
+  visibleStageRect,
+} from "@/lib/widget-motion"
 import { gsap } from "@/lib/gsap"
-import { e2ePreviewUser } from "@/lib/e2e-preview"
+import { e2ePreviewUser, previewFlags } from "@/lib/e2e-preview"
+import { CONTENT_SLOTS, PREVIEW_LAYOUT_KEY } from "@/lib/widget-slots"
 import "@/styles.css"
 
 const gate = vi.hoisted(() => ({
   fail: false,
   delay: null as Promise<void> | null,
   subs: [] as Array<Record<string, unknown>>,
+  layouts: [] as Array<{ widgetId: string; x: number; y: number }>,
+  layoutSaves: [] as Array<{ widgetId: string; x: number; y: number }>,
 }))
 
 const auth = vi.hoisted(() => ({
@@ -92,6 +101,26 @@ vi.mock("@/orpc/client", () => ({
         }),
       },
     },
+    widgetLayouts: {
+      list: {
+        queryOptions: () => ({
+          queryKey: ["layouts"],
+          queryFn: async () => gate.layouts,
+        }),
+      },
+      save: {
+        mutationOptions: () => ({
+          mutationFn: async (input: {
+            widgetId: string
+            x: number
+            y: number
+          }) => {
+            gate.layoutSaves.push(input)
+            return { stored: true, ...input }
+          },
+        }),
+      },
+    },
   },
 }))
 
@@ -127,6 +156,65 @@ async function waitPhase(phase: string) {
   await expect
     .poll(() => root().dataset.phase, { timeout: 6000, interval: 16 })
     .toBe(phase)
+}
+
+function slotOf(id: string) {
+  const node = document.getElementById(`widget-${id}-slot`)
+  return readTranslate(node?.getAttribute("transform") ?? null)
+}
+
+function modelBox(id: string) {
+  const slot = slotOf(id)
+  const widget = document.getElementById(`widget-${id}`)
+  if (!slot || !(widget instanceof SVGGraphicsElement)) return null
+  const box = widget.getBBox()
+  return {
+    x: slot.x + box.x,
+    y: slot.y + box.y,
+    w: box.width,
+    h: box.height,
+  }
+}
+
+function insideVisible(id: string) {
+  const stage = document.getElementById("stage")
+  const box = modelBox(id)
+  if (!(stage instanceof SVGSVGElement) || !box) return false
+  const visible = visibleStageRect(stage)
+  return (
+    box.x >= visible.x - 1 &&
+    box.y >= visible.y - 1 &&
+    box.x + box.w <= visible.x + visible.w + 1 &&
+    box.y + box.h <= visible.y + visible.h + 1
+  )
+}
+
+function pointer(
+  type: string,
+  target: EventTarget,
+  x: number,
+  y: number,
+  pointerId = 1
+) {
+  target.dispatchEvent(
+    new PointerEvent(type, {
+      bubbles: true,
+      clientX: x,
+      clientY: y,
+      pointerId,
+    })
+  )
+}
+
+async function dragWidget(id: string, dx: number, dy: number) {
+  const node = document.getElementById(`widget-${id}`)
+  if (!node) throw new Error(`missing widget-${id}`)
+  const rect = node.getBoundingClientRect()
+  const x = rect.left + Math.min(12, rect.width / 2)
+  const y = rect.top + Math.min(12, rect.height / 2)
+  pointer("pointerdown", node, x, y)
+  pointer("pointermove", window, x + dx, y + dy)
+  return { x, y }
 }
 
 function travel(selector: string) {
@@ -173,9 +261,14 @@ afterEach(async () => {
   await page.viewport(1280, 800)
   gsap.globalTimeline.clear()
   sessionStorage.removeItem(JUST_AUTHED_KEY)
+  localStorage.removeItem(PREVIEW_LAYOUT_KEY)
+  previewFlags.dev = Boolean(import.meta.env.DEV)
+  previewFlags.e2e = import.meta.env.VITE_TECHO_E2E === "1"
   gate.fail = false
   gate.delay = null
   gate.subs = []
+  gate.layouts = []
+  gate.layoutSaves = []
   auth.signIn.mockClear()
   auth.signOut.mockClear()
 })
@@ -278,6 +371,28 @@ describe("PM desk path", () => {
     await expectAuthFullyVisible()
     await page.viewport(1000, 800)
     await expectAuthFullyVisible()
+
+    const authHome = document
+      .getElementById("widget-auth-github-slot")
+      ?.getAttribute("transform")
+    const authNode = document.getElementById("widget-auth-github")!
+    const authRect = authNode.getBoundingClientRect()
+    pointer("pointerdown", authNode, authRect.left + 8, authRect.top + 8)
+    pointer("pointermove", window, authRect.left + 80, authRect.top + 20)
+    pointer("pointerup", authNode, authRect.left + 80, authRect.top + 20)
+    expect(
+      document
+        .getElementById("widget-auth-github-slot")
+        ?.getAttribute("transform")
+    ).toBe(authHome)
+    expect(localStorage.getItem(PREVIEW_LAYOUT_KEY)).toBeNull()
+    expect(gate.layoutSaves).toEqual([])
+    const category = document.getElementById("widget-category")!
+    pointer("pointerdown", category, 30, 30)
+    pointer("pointermove", window, 90, 30)
+    pointer("pointerup", category, 90, 30)
+    expect(slotOf("category")).toEqual(CONTENT_SLOTS.category)
+    expect(root().dataset.phase).toBe("login-only")
 
     await css("#widget-auth-github").click()
     expect(auth.signIn).toHaveBeenCalledWith({
@@ -755,5 +870,198 @@ describe("dialog paper", () => {
       expect(dialog?.querySelector("foreignObject")).toBeTruthy()
       await shown.unmount()
     }
+  })
+})
+
+describe("content drag", () => {
+  test("a short press opens the dialog and a real drag does not", async () => {
+    const view = await render(providers(e2ePreviewUser("browse")))
+    await waitPhase("desk")
+    expect(document.getElementById("widgetShadow")).toBeNull()
+    for (const [id, level] of [
+      ["widgetShadowDesk", SHADOW.desk],
+      ["widgetShadowLift", SHADOW.lift],
+      ["widgetShadowFloat", SHADOW.float],
+    ] as const) {
+      const shadow = document.querySelector(`#${id} feDropShadow`)
+      expect(shadow?.getAttribute("flood-color")).toBe(SHADOW.ink)
+      expect(Number(shadow?.getAttribute("dy"))).toBe(level.dy)
+      expect(Number(shadow?.getAttribute("stdDeviation"))).toBe(level.std)
+      expect(Number(shadow?.getAttribute("flood-opacity"))).toBe(level.opacity)
+      expect(shadow?.getAttribute("dx")).toBe("0")
+    }
+    const ink = document.querySelector("#widget-compose .ink-shadow")
+    expect(ink).toBeTruthy()
+    expect(getComputedStyle(ink!).filter).toContain("widgetShadowDesk")
+
+    const compose = document.getElementById("widget-compose")!
+    const rect = compose.getBoundingClientRect()
+    pointer("pointerdown", compose, rect.left + 16, rect.top + 16)
+    pointer("pointermove", window, rect.left + 23, rect.top + 16)
+    pointer("pointerup", window, rect.left + 23, rect.top + 16)
+    await waitPhase("expanded")
+    expect(slotOf("compose")).toEqual(CONTENT_SLOTS.compose)
+    expect(localStorage.getItem(PREVIEW_LAYOUT_KEY)).toBeNull()
+    expect(document.querySelector("#desk-dialog foreignObject")).toBeTruthy()
+    expect(
+      getComputedStyle(document.getElementById("desk-dialog")!).filter
+    ).toContain("widgetShadowFloat")
+    expect(
+      document.querySelector("#desk-dialog foreignObject")?.getAttribute("x")
+    ).toBe("270")
+    pointer("pointerdown", document.querySelector(".dialog-paper")!, 400, 300)
+    pointer("pointermove", window, 520, 360)
+    pointer("pointerup", window, 520, 360)
+    expect(
+      document.querySelector("#desk-dialog foreignObject")?.getAttribute("y")
+    ).toBe("120")
+    expect(root().dataset.expanded).toBe("compose")
+    await view.unmount()
+  })
+
+  test("dragging moves the compact slot, bounces into the slice, and restores", async () => {
+    localStorage.setItem(
+      PREVIEW_LAYOUT_KEY,
+      JSON.stringify({ compose: { x: 480, y: 240 } })
+    )
+    const first = await render(providers(e2ePreviewUser("browse")))
+    await waitPhase("desk")
+    expect(slotOf("compose")).toEqual({ x: 480, y: 240 })
+    expect(slotOf("category")).toEqual(CONTENT_SLOTS.category)
+    expect(getComputedStyle(document.getElementById("stage")!).transform).toBe(
+      "none"
+    )
+    const before = {
+      cup: document.getElementById("prop-cup-slot")?.getAttribute("transform"),
+      pen: document.getElementById("prop-pen-slot")?.getAttribute("transform"),
+      plant: document.getElementById("prop-plant")?.getAttribute("transform"),
+      tape: document
+        .getElementById("prop-tape-floral")
+        ?.getAttribute("transform"),
+    }
+    const tape = document.getElementById("prop-tape-floral")!
+    pointer("pointerdown", tape, 100, 100)
+    pointer("pointermove", window, 200, 160)
+    pointer("pointerup", tape, 200, 160)
+    expect(
+      document.getElementById("prop-cup-slot")?.getAttribute("transform")
+    ).toBe(before.cup)
+    expect(
+      document.getElementById("prop-pen-slot")?.getAttribute("transform")
+    ).toBe(before.pen)
+    expect(
+      document.getElementById("prop-plant")?.getAttribute("transform")
+    ).toBe(before.plant)
+    expect(
+      document.getElementById("prop-tape-floral")?.getAttribute("transform")
+    ).toBe(before.tape)
+    expect(gate.layoutSaves).toEqual([])
+
+    const { x, y } = await dragWidget("compose", 40, 0)
+    await expect
+      .poll(() => root().dataset.dragging ?? "", { timeout: 1000 })
+      .toBe("compose")
+    expect(
+      getComputedStyle(document.querySelector("#widget-compose .ink-shadow")!)
+        .filter
+    ).toContain("widgetShadowLift")
+    expect(
+      getComputedStyle(document.querySelector("#widget-category .ink-shadow")!)
+        .filter
+    ).toContain("widgetShadowDesk")
+    pointer("pointerup", window, x + 40, y)
+    await expect
+      .poll(() => root().dataset.dragging ?? "", { timeout: 1000 })
+      .toBe("")
+    expect(root().dataset.phase).toBe("desk")
+    expect(root().dataset.expanded ?? "").toBe("")
+    expect(document.querySelector("#desk-dialog foreignObject")).toBeNull()
+    const moved = slotOf("compose")
+    expect(moved?.x).toBeGreaterThan(480)
+    expect(localStorage.getItem(PREVIEW_LAYOUT_KEY)).toContain("compose")
+    expect(localStorage.getItem(PREVIEW_LAYOUT_KEY)).not.toContain("github")
+    expect(getComputedStyle(document.getElementById("stage")!).transform).toBe(
+      "none"
+    )
+    expect(document.getElementById("stage")?.getAttribute("viewBox")).toBe(
+      "0 0 1280 800"
+    )
+    await first.unmount()
+
+    const again = await render(providers(e2ePreviewUser("browse")))
+    await waitPhase("desk")
+    expect(slotOf("compose")?.x).toBeCloseTo(moved?.x ?? 0, 0)
+    expect(slotOf("compose")?.y).toBeCloseTo(moved?.y ?? 0, 0)
+    await again.unmount()
+
+    const edges = [
+      { viewport: [1600, 900] as const, id: "compose", dx: 0, dy: -4000 },
+      { viewport: [1024, 768] as const, id: "subs", dx: 4000, dy: 0 },
+      { viewport: [1000, 800] as const, id: "category", dx: -4000, dy: 0 },
+      { viewport: [1000, 800] as const, id: "charges", dx: 4000, dy: 0 },
+    ]
+    for (const edge of edges) {
+      await page.viewport(edge.viewport[0], edge.viewport[1])
+      const pass = await render(providers(e2ePreviewUser("browse")))
+      await waitPhase("desk")
+      const start = await dragWidget(edge.id, edge.dx, edge.dy)
+      pointer("pointerup", window, start.x + edge.dx, start.y + edge.dy)
+      await expect
+        .poll(() => insideVisible(edge.id), { timeout: 2000 })
+        .toBe(true)
+      expect(
+        getComputedStyle(document.getElementById("stage")!).transform
+      ).toBe("none")
+      await pass.unmount()
+    }
+  })
+
+  test("a drag that lands on the sticker slot drops the saved row", async () => {
+    localStorage.setItem(
+      PREVIEW_LAYOUT_KEY,
+      JSON.stringify({ compose: { x: 480, y: 240 } })
+    )
+    const view = await render(providers(e2ePreviewUser("browse")))
+    await waitPhase("desk")
+    const stage = document.getElementById("stage")
+    if (!(stage instanceof SVGSVGElement)) throw new Error("stage missing")
+    const origin = viewBoxPoint(stage, 0, 0)
+    const unit = viewBoxPoint(stage, 100, 100)
+    const dx = (CONTENT_SLOTS.compose.x - 480) / ((unit.x - origin.x) / 100)
+    const dy = (CONTENT_SLOTS.compose.y - 240) / ((unit.y - origin.y) / 100)
+    const start = await dragWidget("compose", dx, dy)
+    pointer("pointerup", window, start.x + dx, start.y + dy)
+    await expect
+      .poll(() => localStorage.getItem(PREVIEW_LAYOUT_KEY) ?? "", {
+        timeout: 1000,
+      })
+      .not.toContain("compose")
+    expect(slotOf("compose")?.x).toBeCloseTo(CONTENT_SLOTS.compose.x, 0)
+    expect(slotOf("compose")?.y).toBeCloseTo(CONTENT_SLOTS.compose.y, 0)
+    expect(gate.layoutSaves).toEqual([])
+    await view.unmount()
+  })
+
+  test("a signed-in desk persists through D1 and not preview storage", async () => {
+    previewFlags.dev = false
+    previewFlags.e2e = false
+    gate.layouts = [{ widgetId: "compose", x: 400, y: 210 }]
+    const view = await render(
+      providers({ name: "Mun", email: "mun@techo.test" })
+    )
+    await waitPhase("desk")
+    expect(slotOf("compose")).toEqual({ x: 400, y: 210 })
+    expect(localStorage.getItem(PREVIEW_LAYOUT_KEY)).toBeNull()
+    const start = await dragWidget("subs", 36, 0)
+    pointer("pointerup", window, start.x + 36, start.y)
+    await expect
+      .poll(() => gate.layoutSaves.length, { timeout: 1000 })
+      .toBeGreaterThan(0)
+    expect(gate.layoutSaves[0]?.widgetId).toBe("subs")
+    expect(localStorage.getItem(PREVIEW_LAYOUT_KEY)).toBeNull()
+    expect(gate.layoutSaves.some((row) => row.widgetId === "github")).toBe(
+      false
+    )
+    await view.unmount()
   })
 })

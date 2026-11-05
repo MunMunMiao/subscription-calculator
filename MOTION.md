@@ -330,6 +330,10 @@ function collapseExpanded(id) {
 
 切片：`preserveAspectRatio="xMidYMid slice"`。16:9 相对 16:10 上下各裁约 40px，所以 `y=752..788` 会缺一截。Auth 包围盒必须落在 16:9、4:3、5:4 可见区再内收 20px 的交集里，不能只判断 `x+w≤1280 && y+h≤800`。
 
+### 拖拽
+
+只拖四块内容 compact。Auth、`#desk-dialog`、杯笔植物胶带不拖。指针位移 &lt; 8px 是点击；≥ 8px 只移动 compact，不开 dialog。松手时若包围盒超出当前切片可见区，`power2.out` 320ms 弹回刚好完整可见的位置。落点写入该用户的 slot（与 `CONTENT_SLOTS` 同一坐标系）。不把贴纸默认坐标写成一行。阴影：桌上 `dy 4 / std 5 / 0.22`，拖起 `10 / 12 / 0.26`，dialog `14 / 18 / 0.28`，颜色 INK。`#stage` 不动。
+
 ---
 
 ## 5. 氛围与次要胶带

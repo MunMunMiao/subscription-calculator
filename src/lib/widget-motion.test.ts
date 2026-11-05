@@ -34,8 +34,19 @@ import {
   poseLoginOnly,
   poseRefreshStart,
   setWidgetState,
+  SHADOW,
+  DRAG_BOUNCE,
+  DRAG_THRESHOLD,
+  bindContentDrag,
+  bounceSlot,
+  clampSlot,
+  contentWidgetFromTarget,
+  isDrag,
+  readTranslate,
   sliceSafeRect,
   sliceVisibleRect,
+  viewBoxPoint,
+  visibleStageRect,
 } from "./widget-motion"
 
 function absDelta(delta: { x: number; y: number }) {
@@ -108,7 +119,11 @@ function setReduce(on: boolean) {
   }
 }
 
+const dragCleanups: Array<() => void> = []
+
 afterEach(() => {
+  for (const cleanup of dragCleanups) cleanup()
+  dragCleanups.length = 0
   gsap.globalTimeline.clear()
   document.body.replaceChildren()
 })
@@ -431,5 +446,253 @@ describe("expand and collapse timelines", () => {
     expect(gsap.getTweensOf("#prop-cup").length).toBeGreaterThan(0)
     expect(gsap.getTweensOf("#prop-plant").length).toBeGreaterThan(0)
     expect(gsap.getTweensOf("#light").length).toBeGreaterThan(0)
+  })
+})
+
+function dragRoot() {
+  const root = document.createElement("div")
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg")
+  svg.id = "stage"
+  svg.setAttribute("viewBox", "0 0 1280 800")
+  svg.style.width = "1280px"
+  svg.style.height = "800px"
+  const slot = document.createElementNS("http://www.w3.org/2000/svg", "g")
+  slot.id = "widget-compose-slot"
+  slot.setAttribute("transform", "translate(320 168)")
+  const widget = document.createElementNS("http://www.w3.org/2000/svg", "g")
+  widget.id = "widget-compose"
+  widget.setAttribute("data-interactive", "true")
+  const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect")
+  rect.setAttribute("x", "-20")
+  rect.setAttribute("y", "-10")
+  rect.setAttribute("width", "40")
+  rect.setAttribute("height", "30")
+  widget.appendChild(rect)
+  slot.appendChild(widget)
+  const auth = document.createElementNS("http://www.w3.org/2000/svg", "g")
+  auth.id = "widget-auth-github"
+  auth.setAttribute("data-interactive", "true")
+  svg.appendChild(slot)
+  svg.appendChild(auth)
+  root.appendChild(svg)
+  document.body.appendChild(root)
+  return { root, widget, slot }
+}
+
+function pointer(
+  type: string,
+  target: EventTarget,
+  x: number,
+  y: number,
+  pointerId = 1
+) {
+  target.dispatchEvent(
+    new PointerEvent(type, { bubbles: true, clientX: x, clientY: y, pointerId })
+  )
+}
+
+describe("drag threshold, clamp, and bounce", () => {
+  test("8px splits a click from a drag", () => {
+    expect(DRAG_THRESHOLD).toBe(8)
+    expect(isDrag(0)).toBe(false)
+    expect(isDrag(7.9)).toBe(false)
+    expect(isDrag(8)).toBe(true)
+    expect(readTranslate(null)).toBeNull()
+    expect(readTranslate("matrix(1 0 0 1 0 0)")).toBeNull()
+    expect(readTranslate("translate(1e999 2)")).toBeNull()
+    expect(readTranslate("translate(12, 34)")).toEqual({ x: 12, y: 34 })
+    expect(contentWidgetFromTarget(null)).toBeNull()
+    expect(contentWidgetFromTarget(document.createTextNode("x"))).toBeNull()
+    const plain = document.createElement("div")
+    expect(contentWidgetFromTarget(plain)).toBeNull()
+    plain.setAttribute("data-interactive", "true")
+    plain.id = "prop-tape-floral"
+    expect(contentWidgetFromTarget(plain)).toBeNull()
+    plain.id = "widget-auth-github"
+    expect(contentWidgetFromTarget(plain)).toBeNull()
+    plain.id = "widget-compose"
+    expect(contentWidgetFromTarget(plain)).toBe("compose")
+  })
+
+  test("clamp keeps the bbox inside and pins an oversized face", () => {
+    const local = { x: -20, y: -10, w: 40, h: 30 }
+    const visible = { x: 10, y: 20, w: 100, h: 80 }
+    expect(clampSlot({ x: 40, y: 40 }, local, visible)).toEqual({
+      x: 40,
+      y: 40,
+    })
+    expect(clampSlot({ x: 0, y: 40 }, local, visible)).toEqual({ x: 30, y: 40 })
+    expect(clampSlot({ x: 200, y: 40 }, local, visible)).toEqual({
+      x: 90,
+      y: 40,
+    })
+    expect(clampSlot({ x: 40, y: 0 }, local, visible)).toEqual({ x: 40, y: 30 })
+    expect(clampSlot({ x: 40, y: 200 }, local, visible)).toEqual({
+      x: 40,
+      y: 80,
+    })
+    expect(
+      clampSlot({ x: 0, y: 30 }, { x: 0, y: 0, w: 400, h: 10 }, visible)
+    ).toEqual({ x: 10, y: 30 })
+    expect(
+      clampSlot({ x: 20, y: 0 }, { x: 0, y: 0, w: 10, h: 400 }, visible)
+    ).toEqual({ x: 20, y: 20 })
+    const detached = document.createElementNS(
+      "http://www.w3.org/2000/svg",
+      "svg"
+    )
+    detached.getScreenCTM = () => null
+    expect(viewBoxPoint(detached, 4, 5)).toEqual({ x: 4, y: 5 })
+    const { root } = dragRoot()
+    const stage = root.querySelector("#stage") as SVGSVGElement
+    expect(visibleStageRect(stage).w).toBeGreaterThan(0)
+    stage.style.width = "0px"
+    stage.style.height = "0px"
+    expect(visibleStageRect(stage)).toEqual({ x: 0, y: 0, w: 1280, h: 800 })
+  })
+
+  test("bounce eases with power2 and skips a settled slot", () => {
+    let done = false
+    expect(
+      bounceSlot(
+        { x: 1, y: 2 },
+        { x: 1, y: 2 },
+        () => {},
+        () => {
+          done = true
+        }
+      )
+    ).toBeNull()
+    expect(done).toBe(true)
+    const updates: Array<{ x: number; y: number }> = []
+    let finished = false
+    const tween = bounceSlot(
+      { x: 0, y: 0 },
+      { x: 10, y: 4 },
+      (slot) => updates.push(slot),
+      () => {
+        finished = true
+      }
+    )
+    expect(tween?.duration()).toBeCloseTo(DRAG_BOUNCE.duration)
+    expect(tween?.vars.ease).toBe(DRAG_BOUNCE.ease)
+    tween?.progress(1)
+    expect(finished).toBe(true)
+    expect(updates.at(-1)).toEqual({ x: 10, y: 4 })
+    const restore = setReduce(true)
+    const reduced = bounceSlot(
+      { x: 0, y: 0 },
+      { x: 3, y: 0 },
+      () => {},
+      () => {}
+    )
+    expect(reduced?.duration()).toBeCloseTo(0.08)
+    reduced?.progress(1)
+    restore()
+    expect(SHADOW.ink).toBe("#2a2118")
+    expect(SHADOW.desk).toEqual({ dy: 4, std: 5, opacity: 0.22 })
+    expect(SHADOW.lift).toEqual({ dy: 10, std: 12, opacity: 0.26 })
+    expect(SHADOW.float).toEqual({ dy: 14, std: 18, opacity: 0.28 })
+  })
+
+  test("binder ignores auth, small moves, and a missing stage", () => {
+    const clicks: string[] = []
+    const { root, widget, slot } = dragRoot()
+    let enabled = true
+    dragCleanups.push(
+      bindContentDrag(root, {
+        enabled: () => enabled,
+        onDragStart: () => {},
+        onDrag: () => {},
+        onDragEnd: () => {},
+        onCommit: () => {},
+        onClick: (id) => clicks.push(id),
+      })
+    )
+    const auth = root.querySelector("#widget-auth-github")!
+    pointer("pointerdown", auth, 10, 10)
+    pointer("pointermove", window, 80, 10)
+    pointer("pointerup", auth, 80, 10)
+    expect(clicks).toEqual([])
+    pointer("pointerdown", widget, 10, 10)
+    pointer("pointermove", window, 16, 10)
+    pointer("pointerup", window, 16, 10)
+    expect(clicks).toEqual(["compose"])
+    pointer("pointerup", widget, 10, 10)
+    expect(clicks).toEqual(["compose", "compose"])
+    pointer("pointercancel", widget, 10, 10)
+    pointer("pointerup", root, 10, 10)
+    expect(clicks).toEqual(["compose", "compose"])
+    pointer("pointerdown", widget, 22, 22)
+    pointer("pointercancel", window, 22, 22)
+    expect(clicks).toEqual(["compose", "compose"])
+    enabled = false
+    pointer("pointerdown", widget, 10, 10)
+    pointer("pointerup", widget, 40, 10)
+    expect(clicks).toHaveLength(2)
+    enabled = true
+    const stage = root.querySelector("#stage")!
+    stage.id = "gone"
+    pointer("pointerdown", widget, 10, 10)
+    pointer("pointerup", widget, 10, 10)
+    expect(clicks).toHaveLength(3)
+    stage.id = "stage"
+    slot.id = "missing-slot"
+    pointer("pointerdown", widget, 12, 12)
+    pointer("pointerup", widget, 12, 12)
+    expect(clicks).toHaveLength(4)
+    slot.id = "widget-compose-slot"
+    slot.setAttribute("transform", "rotate(4)")
+    pointer("pointerdown", widget, 14, 14)
+    pointer("pointerup", widget, 14, 14)
+    expect(clicks).toHaveLength(5)
+  })
+
+  test("binder drags, ignores a second pointer, and commits when the node is gone", () => {
+    const commits: Array<{ x: number; y: number }> = []
+    let ended = 0
+    const { root, widget } = dragRoot()
+    dragCleanups.push(
+      bindContentDrag(root, {
+        enabled: () => true,
+        onDragStart: () => {},
+        onDrag: () => {},
+        onDragEnd: () => {
+          ended += 1
+        },
+        onCommit: (_id, next) => commits.push(next),
+        onClick: () => {},
+      })
+    )
+    pointer("pointerdown", widget, 200, 200, 7)
+    pointer("pointermove", window, 240, 200, 7)
+    pointer("pointerup", window, 240, 200, 7)
+    expect(ended).toBe(1)
+    expect(commits).toHaveLength(1)
+    pointer("pointerdown", widget, 100, 100, 1)
+    pointer("pointerdown", widget, 100, 100, 2)
+    pointer("pointermove", window, 140, 100, 2)
+    pointer("pointermove", window, 104, 100, 1)
+    expect(commits).toHaveLength(1)
+    pointer("pointermove", window, 140, 100, 1)
+    pointer("pointermove", window, 160, 100, 1)
+    const stage = root.querySelector("#stage")!
+    stage.id = "gone"
+    pointer("pointermove", window, 180, 100, 1)
+    pointer("pointerup", window, 180, 100, 1)
+    expect(ended).toBe(2)
+    expect(commits).toHaveLength(2)
+    stage.id = "stage"
+    pointer("pointerdown", widget, 30, 30, 3)
+    pointer("pointerup", window, 90, 30, 4)
+    expect(commits).toHaveLength(2)
+    pointer("pointerup", window, 30, 30, 3)
+    expect(ended).toBe(2)
+    pointer("pointerdown", widget, 40, 40, 5)
+    pointer("pointermove", window, 80, 40, 5)
+    widget.remove()
+    pointer("pointerup", window, 80, 40, 5)
+    expect(ended).toBe(3)
+    expect(commits).toHaveLength(3)
   })
 })

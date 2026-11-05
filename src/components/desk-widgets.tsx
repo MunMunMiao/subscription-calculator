@@ -13,13 +13,8 @@ import {
   WIDGET_SCENE_IDS,
   type AuthWidgetId,
 } from "@/lib/widget-machine"
-import {
-  AUTH_GITHUB_FACE,
-  AUTH_SLOTS,
-  CONTENT_SLOTS,
-} from "@/lib/widget-motion"
-
-export const WIDGET_SLOTS = CONTENT_SLOTS
+import { AUTH_GITHUB_FACE, AUTH_SLOTS } from "@/lib/widget-motion"
+import type { WidgetSlot } from "@/lib/widget-slots"
 
 const INK = "#2a2118"
 const PAPER = "#f3ead3"
@@ -52,10 +47,10 @@ type ChargeRow = {
 }
 
 export function CategoryWidget({
-  onPick,
+  slot,
   items,
 }: {
-  onPick: () => void
+  slot: WidgetSlot
   items: Array<{ category: string }>
 }) {
   const summaries = categorySummaries(items)
@@ -79,18 +74,12 @@ export function CategoryWidget({
         }))
 
   return (
-    <g
-      transform={`translate(${WIDGET_SLOTS.category.x} ${WIDGET_SLOTS.category.y})`}
-    >
+    <g id="widget-category-slot" transform={`translate(${slot.x} ${slot.y})`}>
       <g
         id="widget-category"
         className="desk-widget content-widget"
         data-interactive="true"
         data-state="idle"
-        onPointerUp={(event) => {
-          event.stopPropagation()
-          onPick()
-        }}
       >
         {chips.map((chip) => {
           const originX = chip.slot.x + chip.slot.w / 2
@@ -109,7 +98,7 @@ export function CategoryWidget({
                 fill={chip.fill}
                 stroke={INK}
                 strokeWidth="2.2"
-                filter="url(#widgetShadow)"
+                className="ink-shadow"
               />
               <text
                 x={originX}
@@ -140,25 +129,21 @@ export function CategoryWidget({
 }
 
 export function SubsWidget({
-  onPick,
+  slot,
   items,
 }: {
-  onPick: () => void
+  slot: WidgetSlot
   items: SubRow[]
 }) {
   const rows = items.slice(0, 3)
 
   return (
-    <g transform={`translate(${WIDGET_SLOTS.subs.x} ${WIDGET_SLOTS.subs.y})`}>
+    <g id="widget-subs-slot" transform={`translate(${slot.x} ${slot.y})`}>
       <g
         id="widget-subs"
         className="desk-widget content-widget"
         data-interactive="true"
         data-state="idle"
-        onPointerUp={(event) => {
-          event.stopPropagation()
-          onPick()
-        }}
       >
         <rect
           x="-78"
@@ -170,7 +155,7 @@ export function SubsWidget({
           stroke={INK}
           strokeWidth="2.2"
           transform="rotate(7)"
-          filter="url(#widgetShadow)"
+          className="ink-shadow"
         />
         <rect
           x="-86"
@@ -200,7 +185,7 @@ export function SubsWidget({
           fill={PAPER}
           stroke={INK}
           strokeWidth="2.4"
-          filter="url(#widgetShadow)"
+          className="ink-shadow"
         />
         {rows.length === 0 ? (
           <text
@@ -246,10 +231,10 @@ export function SubsWidget({
 }
 
 export function ChargesWidget({
-  onPick,
+  slot,
   charges,
 }: {
-  onPick: () => void
+  slot: WidgetSlot
   charges: ChargeRow[]
 }) {
   const fills = ["#f3e3c2", "#eadcc0", "#f6eedc", "#f3ead3", "#eadcc0"]
@@ -259,21 +244,15 @@ export function ChargesWidget({
   const gap = 40
 
   return (
-    <g
-      transform={`translate(${WIDGET_SLOTS.charges.x} ${WIDGET_SLOTS.charges.y})`}
-    >
+    <g id="widget-charges-slot" transform={`translate(${slot.x} ${slot.y})`}>
       <g
         id="widget-charges"
         className="desk-widget content-widget"
         data-interactive="true"
         data-state="idle"
-        onPointerUp={(event) => {
-          event.stopPropagation()
-          onPick()
-        }}
       >
         {visible.length === 0 ? (
-          <g transform="rotate(-2)" filter="url(#widgetShadow)">
+          <g transform="rotate(-2)" className="ink-shadow">
             <rect
               x="-240"
               y="-18"
@@ -310,7 +289,7 @@ export function ChargesWidget({
               <g
                 key={charge.id}
                 transform={`rotate(${rots[index]})`}
-                filter="url(#widgetShadow)"
+                className="ink-shadow"
               >
                 <rect
                   x="-240"
@@ -359,27 +338,21 @@ export function ChargesWidget({
 }
 
 export function ComposeWidget({
-  onPick,
+  slot,
   idleLine,
 }: {
-  onPick: () => void
+  slot: WidgetSlot
   idleLine: string
 }) {
   return (
-    <g
-      transform={`translate(${WIDGET_SLOTS.compose.x} ${WIDGET_SLOTS.compose.y})`}
-    >
+    <g id="widget-compose-slot" transform={`translate(${slot.x} ${slot.y})`}>
       <g
         id="widget-compose"
         className="desk-widget content-widget"
         data-interactive="true"
         data-state="idle"
-        onPointerUp={(event) => {
-          event.stopPropagation()
-          onPick()
-        }}
       >
-        <g transform="rotate(-4)" filter="url(#widgetShadow)">
+        <g transform="rotate(-4)" className="ink-shadow">
           <rect
             x="-118"
             y="-130"

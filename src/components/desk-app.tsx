@@ -1,7 +1,7 @@
 "use client"
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { useReducer, useRef, useState } from "react"
+import { useLayoutEffect, useReducer, useRef, useState } from "react"
 import { toast } from "sonner"
 
 import { DeskDialogMount } from "@/components/desk-dialog"
@@ -25,7 +25,11 @@ import {
 import { EMPTY_INK, formatMonthlyBanner } from "@/lib/desk-ink"
 import { useGSAP } from "@/lib/gsap"
 import { authClient } from "@/lib/auth-client"
-import { e2ePreviewItems, isE2ePreviewUser } from "@/lib/e2e-preview"
+import {
+  allowE2ePreview,
+  e2ePreviewItems,
+  isE2ePreviewUser,
+} from "@/lib/e2e-preview"
 import { centsToAmount } from "@/lib/money"
 import {
   toISODate,
@@ -41,6 +45,7 @@ import {
 } from "@/lib/widget-machine"
 import {
   JUST_AUTHED_KEY,
+  bindContentDrag,
   bindWidgetStickers,
   collapseExpanded,
   expandWidget,
@@ -50,6 +55,13 @@ import {
   poseLoginOnly,
   poseRefreshStart,
 } from "@/lib/widget-motion"
+import {
+  isStickerDefault,
+  placedSlots,
+  readPreviewLayouts,
+  writePreviewLayout,
+  type WidgetSlot,
+} from "@/lib/widget-slots"
 import { orpc } from "@/orpc/client"
 
 export type DeskUser = {
@@ -133,14 +145,28 @@ export function DeskApp({ user }: { user: DeskUser }) {
   const [form, setForm] = useState<FormValues>(EMPTY_FORM)
   const [now] = useState(() => new Date())
   const preview = isE2ePreviewUser(activeUser)
+  const previewLayout = allowE2ePreview()
   const [localItems, setLocalItems] = useState<SubscriptionRecord[]>(() =>
     preview ? (e2ePreviewItems(now) as SubscriptionRecord[]) : []
   )
+  const [overrides, setOverrides] = useState<
+    Partial<Record<ContentWidgetId, WidgetSlot>>
+  >(() => (allowE2ePreview() ? readPreviewLayouts() : {}))
+  const [dragging, setDragging] = useState<ContentWidgetId | null>(null)
 
   const listQuery = useQuery({
     ...orpc.subscriptions.list.queryOptions(),
     enabled: Boolean(activeUser) && !preview,
   })
+  const layoutQuery = useQuery({
+    ...orpc.widgetLayouts.list.queryOptions(),
+    enabled: Boolean(activeUser) && !previewLayout,
+  })
+  const slots = placedSlots(
+    previewLayout ? [] : (layoutQuery.data ?? []),
+    overrides
+  )
+  const saveLayout = useMutation(orpc.widgetLayouts.save.mutationOptions())
   const items = (
     preview ? localItems : (listQuery.data ?? [])
   ) as SubscriptionRecord[]
@@ -190,16 +216,25 @@ export function DeskApp({ user }: { user: DeskUser }) {
     })
   )
 
+  /* v8 ignore start -- placeholders until the layout effect installs the live handlers */
+  const commitRef = useRef<(id: ContentWidgetId, slot: WidgetSlot) => void>(
+    () => {}
+  )
+  const expandRef = useRef<(id: ContentWidgetId) => void>(() => {})
+  /* v8 ignore stop */
+  const enterStarted = useRef(false)
+
   useGSAP(
     () => {
       playAmbient()
       if (desk.phase === "login-only") poseLoginOnly()
       else poseRefreshStart()
-      return bindWidgetStickers(
-        rootRef.current!,
-        () => rootRef.current?.dataset.locked === "true",
+      const root = rootRef.current!
+      const unstick = bindWidgetStickers(
+        root,
+        () => root.dataset.locked === "true",
         () => {
-          const expanded = rootRef.current?.dataset.expanded
+          const expanded = root.dataset.expanded
           if (
             expanded === "category" ||
             expanded === "subs" ||
@@ -211,19 +246,39 @@ export function DeskApp({ user }: { user: DeskUser }) {
           return null
         }
       )
+      const undrag = bindContentDrag(root, {
+        enabled: () =>
+          root.dataset.phase === "desk" || root.dataset.phase === "expanded",
+        onDragStart: (id) => setDragging(id),
+        onDrag: (id, slot) =>
+          setOverrides((current) => ({ ...current, [id]: slot })),
+        onDragEnd: () => setDragging(null),
+        onCommit: (id, slot) => commitRef.current(id, slot),
+        onClick: (id) => expandRef.current(id),
+      })
+      return () => {
+        unstick()
+        undrag()
+      }
     },
     { scope: rootRef, revertOnUpdate: false }
   )
 
   useGSAP(
     () => {
-      if (desk.phase !== "enter") return
+      if (desk.phase !== "enter" || enterStarted.current) return
+      if (!previewLayout && !layoutQuery.isFetched) return
+      enterStarted.current = true
       sessionStorage.removeItem(JUST_AUTHED_KEY)
       playEnterRespectingMotion(desk.fromLogin ? "login" : "refresh", () => {
         dispatch({ type: "enter-done" })
       })
     },
-    { scope: rootRef, dependencies: [desk.phase], revertOnUpdate: false }
+    {
+      scope: rootRef,
+      dependencies: [desk.phase, previewLayout, layoutQuery.isFetched],
+      revertOnUpdate: false,
+    }
   )
 
   useGSAP(
@@ -283,6 +338,26 @@ export function DeskApp({ user }: { user: DeskUser }) {
   function expand(id: ContentWidgetId) {
     dispatch({ type: "expand", id })
   }
+
+  function commitSlot(id: ContentWidgetId, slot: WidgetSlot) {
+    const stored = isStickerDefault(id, slot) ? null : slot
+    setOverrides((current) => {
+      const next = { ...current }
+      if (stored) next[id] = stored
+      else delete next[id]
+      return next
+    })
+    if (previewLayout) {
+      writePreviewLayout(id, stored)
+      return
+    }
+    saveLayout.mutate({ widgetId: id, x: slot.x, y: slot.y })
+  }
+
+  useLayoutEffect(() => {
+    commitRef.current = commitSlot
+    expandRef.current = expand
+  })
 
   function collapse() {
     dispatch({ type: "collapse" })
@@ -382,14 +457,15 @@ export function DeskApp({ user }: { user: DeskUser }) {
       data-from={desk.fromLogin ? "login" : "session"}
       data-expanded={desk.expanded ?? ""}
       data-locked={desk.locked ? "true" : "false"}
+      data-dragging={dragging ?? undefined}
     >
       <DeskScene onDeskClick={collapse}>
         <AuthLayer onLogin={login} />
-        <CategoryWidget onPick={() => expand("category")} items={items} />
-        <SubsWidget onPick={() => expand("subs")} items={items} />
-        <ChargesWidget onPick={() => expand("charges")} charges={charges} />
+        <CategoryWidget slot={slots.category} items={items} />
+        <SubsWidget slot={slots.subs} items={items} />
+        <ChargesWidget slot={slots.charges} charges={charges} />
         <ComposeWidget
-          onPick={() => expand("compose")}
+          slot={slots.compose}
           idleLine={form.name.trim() || EMPTY_INK.compose}
         />
         <DeskInk

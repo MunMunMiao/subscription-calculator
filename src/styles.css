@@ -192,6 +192,7 @@
 
 #desk-dialog {
   visibility: hidden;
+  filter: url(#widgetShadowFloat);
 }
 
 [data-phase="login-only"] #desk-dialog,
@@ -217,7 +218,7 @@
   background: #f3ead3;
   color: #2a2118;
   font-family: "Noto Serif SC", serif;
-  box-shadow: 0 3px 0 rgba(42, 33, 24, 0.16);
+  box-shadow: none;
 }
 
 .dialog-bar {
@@ -316,6 +317,23 @@
 
 .auth-widget {
   cursor: pointer;
+}
+
+.content-widget {
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+
+.content-widget .ink-shadow {
+  filter: url(#widgetShadowDesk);
+}
+
+.desk-root[data-dragging="category"] #widget-category .ink-shadow,
+.desk-root[data-dragging="subs"] #widget-subs .ink-shadow,
+.desk-root[data-dragging="charges"] #widget-charges .ink-shadow,
+.desk-root[data-dragging="compose"] #widget-compose .ink-shadow {
+  filter: url(#widgetShadowLift);
 }
 
 .paper-layer {

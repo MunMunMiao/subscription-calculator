@@ -3,10 +3,14 @@ import {
   AUTH_WIDGET_IDS,
   CONTENT_SCENE_IDS,
   WIDGET_SCENE_IDS,
+  isContentWidgetId,
   type AuthWidgetId,
   type ContentWidgetId,
   type WidgetFourState,
 } from "@/lib/widget-machine"
+import { CONTENT_SLOTS, type WidgetSlot } from "@/lib/widget-slots"
+
+export { CONTENT_SLOTS }
 
 export const JUST_AUTHED_KEY = "techo-just-authed"
 
@@ -67,14 +71,6 @@ export function sliceSafeRect(
   }
 }
 
-/** Content slots. Dialog scale origin is the slot center; the piece stays here. */
-export const CONTENT_SLOTS = {
-  category: { x: 216, y: 416 },
-  subs: { x: 1040, y: 248 },
-  charges: { x: 640, y: 608 },
-  compose: { x: 320, y: 168 },
-} as const satisfies Record<ContentWidgetId, { x: number; y: number }>
-
 /** Desk-center idle home. Face bbox stays ≥80px inside the 1280×800 viewBox. */
 export const AUTH_SLOTS = {
   github: { x: 530, y: 368 },
@@ -117,6 +113,26 @@ export const COLLAPSE_MOTION = {
   duration: 0.32,
   ease: "power2.in",
 } as const
+
+/** Pointer travel in CSS pixels. Under this, the gesture is a click. */
+export const DRAG_THRESHOLD = 8
+
+export const DRAG_BOUNCE = {
+  duration: 0.32,
+  ease: "power2.out",
+} as const
+
+/** Soft ink shadows. dx stays 0 so the edge is not a hard black offset. */
+export const SHADOW = {
+  ink: "#2a2118",
+  desk: { dy: 4, std: 5, opacity: 0.22 },
+  lift: { dy: 10, std: 12, opacity: 0.26 },
+  float: { dy: 14, std: 18, opacity: 0.28 },
+} as const
+
+export function isDrag(distance: number) {
+  return distance >= DRAG_THRESHOLD
+}
 
 export const FROM = {
   "#widget-category": { x: -OFF, y: -80 },
@@ -549,3 +565,218 @@ export function bindWidgetStickers(
 }
 
 export { CONTENT_SCENE_IDS }
+
+export function readTranslate(raw: string | null): WidgetSlot | null {
+  if (!raw) return null
+  const match = /translate\(\s*([-\d.eE+]+)[\s,]+([-\d.eE+]+)\s*\)/.exec(raw)
+  if (!match) return null
+  const x = Number(match[1])
+  const y = Number(match[2])
+  if (!Number.isFinite(x) || !Number.isFinite(y)) return null
+  return { x, y }
+}
+
+export function contentWidgetFromTarget(
+  target: EventTarget | null
+): ContentWidgetId | null {
+  if (!(target instanceof Element)) return null
+  const widget = target.closest("[data-interactive='true']")
+  if (!widget?.id.startsWith("widget-")) return null
+  const id = widget.id.slice("widget-".length)
+  return isContentWidgetId(id) ? id : null
+}
+
+export function viewBoxPoint(
+  stage: SVGSVGElement,
+  clientX: number,
+  clientY: number
+) {
+  const matrix = stage.getScreenCTM()
+  if (!matrix) return { x: clientX, y: clientY }
+  const point = stage.createSVGPoint()
+  point.x = clientX
+  point.y = clientY
+  const local = point.matrixTransform(matrix.inverse())
+  return { x: local.x, y: local.y }
+}
+
+export function visibleStageRect(stage: SVGSVGElement) {
+  const rect = stage.getBoundingClientRect()
+  const aspect = rect.width / rect.height
+  if (!(aspect > 0)) return { x: 0, y: 0, w: STAGE.w, h: STAGE.h }
+  return sliceVisibleRect(aspect)
+}
+
+export function clampSlot(
+  slot: WidgetSlot,
+  local: { x: number; y: number; w: number; h: number },
+  visible: { x: number; y: number; w: number; h: number }
+): WidgetSlot {
+  let x = slot.x
+  let y = slot.y
+  if (local.w >= visible.w) {
+    x = visible.x - local.x
+  } else {
+    const left = x + local.x
+    const right = left + local.w
+    const visRight = visible.x + visible.w
+    if (left < visible.x) x += visible.x - left
+    else if (right > visRight) x -= right - visRight
+  }
+  if (local.h >= visible.h) {
+    y = visible.y - local.y
+  } else {
+    const top = y + local.y
+    const bottom = top + local.h
+    const visBottom = visible.y + visible.h
+    if (top < visible.y) y += visible.y - top
+    else if (bottom > visBottom) y -= bottom - visBottom
+  }
+  return { x, y }
+}
+
+export function bounceSlot(
+  from: WidgetSlot,
+  to: WidgetSlot,
+  onUpdate: (slot: WidgetSlot) => void,
+  onComplete: () => void
+) {
+  if (from.x === to.x && from.y === to.y) {
+    onComplete()
+    return null
+  }
+  const proxy = { x: from.x, y: from.y }
+  return gsap.to(proxy, {
+    x: to.x,
+    y: to.y,
+    duration: reduceMotion() ? 0.08 : DRAG_BOUNCE.duration,
+    ease: DRAG_BOUNCE.ease,
+    onUpdate: () => onUpdate({ x: proxy.x, y: proxy.y }),
+    onComplete,
+  })
+}
+
+export function bindContentDrag(
+  root: HTMLElement,
+  api: {
+    enabled: () => boolean
+    onDragStart: (id: ContentWidgetId) => void
+    onDrag: (id: ContentWidgetId, slot: WidgetSlot) => void
+    onDragEnd: () => void
+    onCommit: (id: ContentWidgetId, slot: WidgetSlot) => void
+    onClick: (id: ContentWidgetId) => void
+  }
+) {
+  let gesture: {
+    id: ContentWidgetId
+    pointer: number
+    startClient: WidgetSlot
+    startSlot: WidgetSlot
+    last: WidgetSlot
+    dragged: boolean
+  } | null = null
+
+  function onDown(event: PointerEvent) {
+    if (!api.enabled() || gesture) return
+    const id = contentWidgetFromTarget(event.target)
+    if (!id) return
+    const stage = root.querySelector("#stage")
+    if (!(stage instanceof SVGSVGElement)) return
+    const slotNode = root.querySelector(`#widget-${id}-slot`)
+    if (!(slotNode instanceof SVGGElement)) return
+    const start = readTranslate(slotNode.getAttribute("transform"))
+    if (!start) return
+    gesture = {
+      id,
+      pointer: event.pointerId,
+      startClient: { x: event.clientX, y: event.clientY },
+      startSlot: start,
+      last: start,
+      dragged: false,
+    }
+  }
+
+  function onMove(event: PointerEvent) {
+    if (!gesture || event.pointerId !== gesture.pointer) return
+    const stage = root.querySelector("#stage")
+    if (!(stage instanceof SVGSVGElement)) return
+    const start = viewBoxPoint(
+      stage,
+      gesture.startClient.x,
+      gesture.startClient.y
+    )
+    const now = viewBoxPoint(stage, event.clientX, event.clientY)
+    const distance = Math.hypot(
+      event.clientX - gesture.startClient.x,
+      event.clientY - gesture.startClient.y
+    )
+    if (!gesture.dragged && !isDrag(distance)) return
+    if (!gesture.dragged) {
+      gesture.dragged = true
+      gsap.set(`#widget-${gesture.id}`, {
+        x: 0,
+        y: 0,
+        rotate: 0,
+        scale: 1,
+        overwrite: "auto",
+      })
+      api.onDragStart(gesture.id)
+    }
+    const next = {
+      x: gesture.startSlot.x + (now.x - start.x),
+      y: gesture.startSlot.y + (now.y - start.y),
+    }
+    gesture.last = next
+    api.onDrag(gesture.id, next)
+  }
+
+  function onUp(event: PointerEvent) {
+    if (!gesture || event.pointerId !== gesture.pointer) {
+      if (!gesture && event.type === "pointerup" && api.enabled()) {
+        const id = contentWidgetFromTarget(event.target)
+        if (id) api.onClick(id)
+      }
+      return
+    }
+    const current = gesture
+    gesture = null
+    if (!current.dragged) {
+      if (event.type === "pointerup") api.onClick(current.id)
+      return
+    }
+    api.onDragEnd()
+    const stage = root.querySelector("#stage")
+    const widget = root.querySelector(`#widget-${current.id}`)
+    if (
+      !(stage instanceof SVGSVGElement) ||
+      !(widget instanceof SVGGraphicsElement)
+    ) {
+      api.onCommit(current.id, current.last)
+      return
+    }
+    const box = widget.getBBox()
+    const clamped = clampSlot(
+      current.last,
+      { x: box.x, y: box.y, w: box.width, h: box.height },
+      visibleStageRect(stage)
+    )
+    bounceSlot(
+      current.last,
+      clamped,
+      (slot) => api.onDrag(current.id, slot),
+      () => api.onCommit(current.id, clamped)
+    )
+  }
+
+  root.addEventListener("pointerdown", onDown)
+  window.addEventListener("pointermove", onMove)
+  window.addEventListener("pointerup", onUp)
+  window.addEventListener("pointercancel", onUp)
+  return () => {
+    gesture = null
+    root.removeEventListener("pointerdown", onDown)
+    window.removeEventListener("pointermove", onMove)
+    window.removeEventListener("pointerup", onUp)
+    window.removeEventListener("pointercancel", onUp)
+  }
+}

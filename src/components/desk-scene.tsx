@@ -1,5 +1,7 @@
 import type { ReactNode } from "react"
 
+import { SHADOW } from "@/lib/widget-motion"
+
 const INK = "#2a2118"
 const WOOD = "#c4a06a"
 
@@ -532,6 +534,33 @@ function GinghamWashi() {
   )
 }
 
+function ShadowFilter({
+  id,
+  level,
+}: {
+  id: string
+  level: { dy: number; std: number; opacity: number }
+}) {
+  return (
+    <filter
+      id={id}
+      x="-70%"
+      y="-70%"
+      width="240%"
+      height="240%"
+      colorInterpolationFilters="sRGB"
+    >
+      <feDropShadow
+        dx="0"
+        dy={level.dy}
+        stdDeviation={level.std}
+        floodColor={SHADOW.ink}
+        floodOpacity={level.opacity}
+      />
+    </filter>
+  )
+}
+
 export function DeskScene({
   children,
   onDeskClick,
@@ -549,15 +578,9 @@ export function DeskScene({
       aria-label="手帐桌面"
     >
       <defs>
-        <filter id="widgetShadow" x="-8%" y="-8%" width="116%" height="120%">
-          <feDropShadow
-            dx="1"
-            dy="3"
-            stdDeviation="1.6"
-            floodColor="#5c3d1c"
-            floodOpacity="0.16"
-          />
-        </filter>
+        <ShadowFilter id="widgetShadowDesk" level={SHADOW.desk} />
+        <ShadowFilter id="widgetShadowLift" level={SHADOW.lift} />
+        <ShadowFilter id="widgetShadowFloat" level={SHADOW.float} />
       </defs>
       <g id="desk">
         <rect

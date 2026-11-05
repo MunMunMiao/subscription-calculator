@@ -2,7 +2,13 @@ import { ORPCError, call } from "@orpc/server"
 import { getTableConfig } from "drizzle-orm/sqlite-core"
 import { beforeEach, describe, expect, test } from "vitest"
 
-import { account, schema, session, subscription } from "@/db/schema"
+import {
+  account,
+  schema,
+  session,
+  subscription,
+  widgetLayout,
+} from "@/db/schema"
 import { createDb } from "@/db"
 import { createAuth } from "@/lib/auth"
 import { readSession } from "@/lib/session"
@@ -10,6 +16,7 @@ import { createORPCContext } from "@/orpc/context"
 import { client, orpc } from "@/orpc/client"
 import { isomorphicServerCall } from "../test/tanstack-start"
 import { intervalFields, router } from "@/orpc/router"
+import { CONTENT_SLOTS } from "@/lib/widget-slots"
 import { setWorkerEnv, setWorkerEnvThrows } from "../test/cloudflare-workers"
 
 const user = { id: "user-1", name: "Mun", email: "mun@techo.test" }
@@ -129,7 +136,8 @@ describe("worker modules", () => {
     expect(schema.session).toBeTruthy()
     expect(schema.account).toBeTruthy()
     expect(schema.verification).toBeTruthy()
-    for (const table of [session, account, subscription]) {
+    expect(schema.widgetLayout).toBe(widgetLayout)
+    for (const table of [session, account, subscription, widgetLayout]) {
       for (const key of getTableConfig(table).foreignKeys) {
         expect(key.reference().foreignColumns.length).toBeGreaterThan(0)
       }
@@ -404,5 +412,91 @@ describe("subscription router", () => {
     })
     expect(seeded.seeded).toBe(true)
     if (seeded.seeded) expect(seeded.items.length).toBe(2)
+  })
+})
+
+describe("widget layouts", () => {
+  test("lists saved slots and drops sticker defaults", async () => {
+    await expect(
+      call(router.widgetLayouts.list, undefined, {
+        context: contextFor(dbOf([]), authOf(null)),
+      })
+    ).rejects.toBeInstanceOf(ORPCError)
+    await expect(
+      call(router.widgetLayouts.list, undefined, {
+        context: contextFor(dbOf([[]]), authOf({ user })),
+      })
+    ).resolves.toEqual([])
+    const listed = await call(router.widgetLayouts.list, undefined, {
+      context: contextFor(
+        dbOf([
+          [
+            {
+              widgetId: "compose",
+              x: CONTENT_SLOTS.compose.x,
+              y: CONTENT_SLOTS.compose.y,
+            },
+            { widgetId: "subs", x: 100, y: 140 },
+          ],
+        ]),
+        authOf({ user })
+      ),
+    })
+    expect(listed).toEqual([{ widgetId: "subs", x: 100, y: 140 }])
+  })
+
+  test("upserts a drag and deletes a return to the sticker home", async () => {
+    await expect(
+      call(
+        router.widgetLayouts.save,
+        { widgetId: "github" as "compose", x: 1, y: 2 },
+        { context: contextFor(dbOf([]), authOf({ user })) }
+      )
+    ).rejects.toThrow()
+    await expect(
+      call(
+        router.widgetLayouts.save,
+        { widgetId: "compose", x: 12, y: 20 },
+        { context: contextFor(dbOf([]), authOf(null)) }
+      )
+    ).rejects.toBeInstanceOf(ORPCError)
+    const cleared = await call(
+      router.widgetLayouts.save,
+      {
+        widgetId: "compose",
+        x: CONTENT_SLOTS.compose.x,
+        y: CONTENT_SLOTS.compose.y,
+      },
+      { context: contextFor(dbOf([[]]), authOf({ user })) }
+    )
+    expect(cleared).toEqual({
+      stored: false,
+      widgetId: "compose",
+      x: CONTENT_SLOTS.compose.x,
+      y: CONTENT_SLOTS.compose.y,
+    })
+    const saved = await call(
+      router.widgetLayouts.save,
+      { widgetId: "charges", x: 500, y: 220 },
+      {
+        context: contextFor(
+          dbOf([[{ widgetId: "charges" }]]),
+          authOf({ user })
+        ),
+      }
+    )
+    expect(saved).toEqual({
+      stored: true,
+      widgetId: "charges",
+      x: 500,
+      y: 220,
+    })
+    await expect(
+      call(
+        router.widgetLayouts.save,
+        { widgetId: "subs", x: 8, y: 9 },
+        { context: contextFor(dbOf([[]]), authOf({ user })) }
+      )
+    ).rejects.toBeInstanceOf(ORPCError)
   })
 })
