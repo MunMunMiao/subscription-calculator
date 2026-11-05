@@ -17,4 +17,16 @@ jobs:
       - run: bun check
       - run: bun fmt --check
       - run: bun run lint
+      - run: bun test
       - run: bun run build
+      - name: Prepare local auth env for E2E
+        run: |
+          if [ ! -f .dev.vars ]; then cp .dev.vars.example .dev.vars; fi
+          bun run db:migrate:local
+      - name: Install Playwright Chromium
+        run: bunx playwright install --with-deps chromium
+      - name: E2E smoke
+        run: bun run test:e2e
+        env:
+          CI: true
+          VITE_TECHO_E2E: "1"

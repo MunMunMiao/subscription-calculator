@@ -87,6 +87,13 @@ bun run dev
 
 Open `http://localhost:3000`.
 
+GitHub OAuth cannot run in CI. Playwright boots the desk browse scene with `/?e2e=browse` when `vite` is in DEV or `VITE_TECHO_E2E=1` (ignored in production). That preview user never hits GitHub; compose save stays in memory so ink-grow can be asserted. First-time E2E:
+
+```sh
+bunx playwright install chromium
+bun run test:e2e
+```
+
 1. Landing is the wooden desk: title **手帐** and **GitHub 登录**.
 2. After GitHub OAuth returns to `/`, the same desk stays on screen. Paper tabs switch 总览 / 分类 / 订阅 / 扣费 / 记一笔 via GSAP (not URL routes).
 3. `/app`, `/login`, and `/subscriptions` redirect to `/`. Auth and RPC stay at `/api/auth/*` and `/api/rpc/*`.
@@ -101,6 +108,15 @@ Open `http://localhost:3000`.
 4. Deploy: `bun run deploy` (runs `vite build` then `wrangler deploy`).
 
 Preview a production build locally with `bun run preview` (Workers runtime via the Cloudflare Vite plugin).
+
+## Pull request Previews
+
+Same-repo PRs get a Cloudflare **Workers Preview** (`wrangler preview`, not `wrangler deploy`). Production `orbit.lyz.cloud` is untouched. D1 is not bound on Preview, so it cannot write production rows.
+
+The Preview workflow builds with `VITE_TECHO_E2E=1`. After the bot comments the URL:
+
+- Sealed landing: `https://<preview>/`
+- Cut签 / 记一笔 / 墨迹: `https://<preview>/?e2e=browse` (in-memory session; GitHub OAuth is not wired)
 
 ## Architecture
 
@@ -122,16 +138,18 @@ Amounts are stored as integer minor units (`amount_cents`). USD and CNY are tota
 
 ## Scripts
 
-| Command                     | What it does                                                       |
-| --------------------------- | ------------------------------------------------------------------ |
-| `bun install`               | Install dependencies from `bun.lock`                               |
-| `bun run dev`               | Vite + Workers local runtime on port 3000                          |
-| `bun check`                 | Typecheck with Bun (`bun check --no-script`)                       |
-| `bun fmt`                   | Format with Bun (`bun fmt --no-script`)                            |
-| `bun fmt --check`           | Check formatting without writing                                   |
-| `bun run lint`              | Lint with oxlint                                                   |
-| `bun run build`             | Production Worker + assets                                         |
-| `bun run db:migrate:local`  | Apply `drizzle/` SQL to local D1                                   |
-| `bun run db:migrate:remote` | Apply SQL to remote D1 (needs Cloudflare login + real database id) |
-| `bun run cf-typegen`        | Generate `worker-configuration.d.ts` from Wrangler config          |
-| `bun run deploy`            | Build and deploy to Cloudflare Workers                             |
+| Command                     | What it does                                                          |
+| --------------------------- | --------------------------------------------------------------------- |
+| `bun install`               | Install dependencies from `bun.lock`                                  |
+| `bun run dev`               | Vite + Workers local runtime on port 3000                             |
+| `bun check`                 | Typecheck with Bun (`bun check --no-script`)                          |
+| `bun fmt`                   | Format with Bun (`bun fmt --no-script`)                               |
+| `bun fmt --check`           | Check formatting without writing                                      |
+| `bun run lint`              | Lint with oxlint                                                      |
+| `bun test`                  | Unit tests (`bun:test`, scene state machine)                          |
+| `bun run test:e2e`          | Playwright smoke (needs Chromium: `bunx playwright install chromium`) |
+| `bun run build`             | Production Worker + assets                                            |
+| `bun run db:migrate:local`  | Apply `drizzle/` SQL to local D1                                      |
+| `bun run db:migrate:remote` | Apply SQL to remote D1 (needs Cloudflare login + real database id)    |
+| `bun run cf-typegen`        | Generate `worker-configuration.d.ts` from Wrangler config             |
+| `bun run deploy`            | Build and deploy to Cloudflare Workers                                |
