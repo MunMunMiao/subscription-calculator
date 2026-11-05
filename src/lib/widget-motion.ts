@@ -529,13 +529,6 @@ export function playAmbient() {
     repeat: -1,
     ease: "sine.inOut",
   })
-  gsap.to("#light", {
-    opacity: 0.85,
-    duration: 4.5,
-    yoyo: true,
-    repeat: -1,
-    ease: "sine.inOut",
-  })
 }
 
 export function bindWidgetStickers(

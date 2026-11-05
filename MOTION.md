@@ -301,7 +301,7 @@ function playExit(expandedId /* string | null */) {
 
 compact 摘要脸留在槽里。点开后 `#desk-dialog` 是另一张同相机纸卡，不把表单画进 compact SVG。
 
-- **compact**：`desk` 且 `expanded === null` = 总览。四件摘要；月总只写在订阅本封面上，无顶栏。无件外名牌。无 `foreignObject`。
+- **compact**：`desk` 且 `expanded === null` = 总览。四件摘要；月总只写在订阅本封面上，无顶栏。无件外名牌。无 `foreignObject`。紧凑面的字是 SVG `<text>`，墨色 `#2a2118`，霞鹜文楷（LXGW WenKai，字重 400）。全桌三阶（SVG 用户单位）：小 13（分类色块、身份牌「退出」）/ 中 16（订阅名、扣费行、记一笔）/ 大 18（封面月合计、身份牌用户名）。
 - **身份牌**：`#widget-session` 左下纸牌（约 210×60，槽 `translate(176 656)`），落桌影与内容件同档。login-only 不在场。点按走 exit，不拖。登录进场与已登录刷新都从左侧画外飞入，退场飞回左侧，`|Δ|≥420`。
 - **expanded**：点内容 Widget → `expandWidget`。关（`#dialog-close`）/ 点 `#desk-hit` / 再点同一件 → `collapseExpanded`。点另一件仍只展开一个。
 - **Auth**：compact-only。`#widget-auth-github` 闲置停在桌心 `translate(530 368)`，脸约 220×64（包围盒 `530–750 × 368–432`，距 1280×800 四边 ≥80）。仍在切片安全区内，不当角标。
@@ -344,7 +344,6 @@ function collapseExpanded(id) {
 | ----------------------------------------------------------- | --------------------------------------------- |
 | `prop-cup`                                                  | opacity + y 慢脉冲（3–5s yoyo）               |
 | `prop-plant`                                                | `scaleY: 1.02` yoyo 3–5s                      |
-| `light`                                                     | opacity 0.85↔1                                |
 | `prop-tape-floral` · `prop-tape-blue` · `prop-tape-gingham` | 装饰四态（idle/hover/act）；**本版不进 held** |
 
 桌心可留轻量只读汇总墨迹作氛围（不可拿起），不算总览 Widget。
@@ -363,13 +362,6 @@ function startAmbient() {
     scaleY: 1.02,
     transformOrigin: "50% 100%",
     duration: 4,
-    yoyo: true,
-    repeat: -1,
-    ease: "sine.inOut",
-  })
-  gsap.to("#light", {
-    opacity: 0.85,
-    duration: 4.5,
     yoyo: true,
     repeat: -1,
     ease: "sine.inOut",

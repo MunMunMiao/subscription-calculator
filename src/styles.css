@@ -2,6 +2,7 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 @import "@fontsource-variable/geist";
+@import "lxgw-wenkai-webfont/lxgwwenkai-regular.css";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -158,9 +159,15 @@
   transform-origin: 50% 50%;
 }
 
+.content-widget text,
+.session-widget text {
+  font-family: "LXGW WenKai";
+  font-weight: 400;
+  fill: #2a2118;
+}
+
 #desk-art,
 #desk-art *,
-#light,
 #prop-layer,
 #prop-layer *,
 .desk-prop {

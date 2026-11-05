@@ -651,16 +651,6 @@ export function DeskScene({
           ))}
         </g>
       </g>
-      <ellipse
-        id="light"
-        cx="640"
-        cy="64"
-        rx="336"
-        ry="56"
-        fill="#f4e4c2"
-        opacity="0.18"
-        pointerEvents="none"
-      />
       {/* SVG paint order is z-order: ambient props behind widgets so
           #prop-cup never occludes or steals hits from #widget-subs. */}
       <g id="prop-layer" pointerEvents="none">

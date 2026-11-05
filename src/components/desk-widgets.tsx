@@ -25,6 +25,17 @@ import type { WidgetSlot } from "@/lib/widget-slots"
 const INK = "#2a2118"
 const PAPER = "#f3ead3"
 const WOOD_DOT = "#c4a06a"
+/** SVG user units on the 1280×800 stage: 小 / 中 / 大. */
+const DESK_TYPE = { sm: 13, md: 16, lg: 18 } as const
+
+function deskType(size: (typeof DESK_TYPE)[keyof typeof DESK_TYPE]) {
+  return {
+    fill: INK,
+    fontSize: size,
+    fontFamily: "'LXGW WenKai'",
+    fontWeight: 400,
+  }
+}
 
 const CHIP = ["#e27898", "#7eb8d4", "#6a9a4e", "#d4a84b", "#c48a6a", "#8a7bb8"]
 
@@ -110,9 +121,7 @@ export function CategoryWidget({
                 x={originX}
                 y={originY + 5}
                 textAnchor="middle"
-                fill={INK}
-                fontSize={chip.category ? 13 : 12}
-                fontFamily="Noto Serif SC, serif"
+                {...deskType(DESK_TYPE.sm)}
               >
                 {chip.label}
               </text>
@@ -186,28 +195,14 @@ export function SubsWidget({
           className="ink-shadow"
         />
         {rows.length === 0 ? (
-          <text
-            x="-12"
-            y="-20"
-            textAnchor="middle"
-            fill={INK}
-            fontSize="16"
-            fontFamily="Noto Serif SC, serif"
-          >
+          <text x="-12" y="-20" textAnchor="middle" {...deskType(DESK_TYPE.md)}>
             {EMPTY_INK.subs}
           </text>
         ) : (
           rows.map((row, index) => {
             const y = -64 + index * 36
             return (
-              <text
-                key={row.id}
-                x="-78"
-                y={y}
-                fill={INK}
-                fontSize="15"
-                fontFamily="Noto Serif SC, serif"
-              >
+              <text key={row.id} x="-78" y={y} {...deskType(DESK_TYPE.md)}>
                 {abbreviateName(row.name, 8)}
               </text>
             )
@@ -218,9 +213,7 @@ export function SubsWidget({
           x="-12"
           y="96"
           textAnchor="middle"
-          fill={INK}
-          fontSize="16"
-          fontFamily="Noto Serif SC, serif"
+          {...deskType(DESK_TYPE.lg)}
         >
           {monthly}
         </text>
@@ -270,14 +263,7 @@ export function ChargesWidget({
               stroke={INK}
               strokeWidth="1.4"
             />
-            <text
-              x="0"
-              y="6"
-              textAnchor="middle"
-              fill={INK}
-              fontSize="16"
-              fontFamily="Noto Serif SC, serif"
-            >
+            <text x="0" y="6" textAnchor="middle" {...deskType(DESK_TYPE.md)}>
               {EMPTY_INK.charges}
             </text>
           </g>
@@ -308,13 +294,7 @@ export function ChargesWidget({
                   stroke={INK}
                   strokeWidth="1.4"
                 />
-                <text
-                  x="-196"
-                  y={y + 22}
-                  fill={INK}
-                  fontSize="14"
-                  fontFamily="Noto Serif SC, serif"
-                >
+                <text x="-196" y={y + 22} {...deskType(DESK_TYPE.md)}>
                   {`${compactDate(charge.date)}   ${compactAmount(charge.amountCents, charge.currency)}`}
                 </text>
               </g>
@@ -367,13 +347,7 @@ export function ComposeWidget({
             stroke="#d4c37a"
             strokeWidth="1.5"
           />
-          <text
-            x="-90"
-            y="-84"
-            fill={INK}
-            fontSize="16"
-            fontFamily="Noto Serif SC, serif"
-          >
+          <text x="-90" y="-84" {...deskType(DESK_TYPE.md)}>
             {idleLine}
           </text>
         </g>
@@ -449,9 +423,7 @@ export function SessionWidget({
           x={SESSION_FACE.w / 2}
           y="26"
           textAnchor="middle"
-          fill={INK}
-          fontSize="16"
-          fontFamily="Noto Serif SC, serif"
+          {...deskType(DESK_TYPE.lg)}
         >
           {abbreviateName(name, 12)}
         </text>
@@ -459,9 +431,7 @@ export function SessionWidget({
           x={SESSION_FACE.w / 2}
           y="46"
           textAnchor="middle"
-          fill={INK}
-          fontSize="12"
-          fontFamily="Noto Serif SC, serif"
+          {...deskType(DESK_TYPE.sm)}
         >
           退出
         </text>

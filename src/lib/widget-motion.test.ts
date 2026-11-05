@@ -90,7 +90,6 @@ function mountStage(kind: "svg" | "html" | "math" | "none") {
     "prop-cup",
     "prop-plant",
     "prop-pen",
-    "light",
     "prop-tape-floral",
   ]) {
     const node = document.createElementNS("http://www.w3.org/2000/svg", "g")
@@ -143,6 +142,8 @@ describe("MOTION §§1–3 hard gates", () => {
   test("never tweens #stage camera", () => {
     expect(sceneSource).toContain('viewBox="0 0 1280 800"')
     expect(sceneSource).toContain('preserveAspectRatio="xMidYMid slice"')
+    expect(sceneSource).not.toContain('id="light"')
+    expect(motionSource).not.toContain("#light")
     expect(motionSource).not.toMatch(
       /gsap\.(to|from|fromTo|set)\(\s*["']#stage/
     )
@@ -491,7 +492,7 @@ describe("expand and collapse timelines", () => {
     playAmbient()
     expect(gsap.getTweensOf("#prop-cup").length).toBeGreaterThan(0)
     expect(gsap.getTweensOf("#prop-plant").length).toBeGreaterThan(0)
-    expect(gsap.getTweensOf("#light").length).toBeGreaterThan(0)
+    expect(gsap.getTweensOf("#light")).toHaveLength(0)
   })
 })
 

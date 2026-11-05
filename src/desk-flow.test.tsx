@@ -197,6 +197,30 @@ function textLines(id: string) {
   )
 }
 
+async function expectDeskType(id: string, sizeFor: (node: Element) => string) {
+  await document.fonts.load(
+    '16px "LXGW WenKai"',
+    "流媒体订阅扣费记一笔退出$26.99 MunMunMiao"
+  )
+  expect(document.fonts.check('16px "LXGW WenKai"', "流媒体")).toBe(true)
+  expect(document.fonts.check('16px "LXGW WenKai"', "MunMunMiao")).toBe(true)
+  const nodes = [...document.querySelectorAll(`#${id} text`)]
+  expect(nodes.length).toBeGreaterThan(0)
+  for (const node of nodes) {
+    expect(node.closest("foreignObject")).toBeNull()
+    expect(node.getAttribute("fill")).toBe("#2a2118")
+    expect(node.getAttribute("font-size")).toBe(sizeFor(node))
+    expect(node.getAttribute("font-weight")).toBe("400")
+    const family = node.getAttribute("font-family") ?? ""
+    expect(family).toContain("LXGW WenKai")
+    expect(family).not.toContain("Noto")
+    const style = getComputedStyle(node)
+    expect(style.fontFamily).toContain("LXGW WenKai")
+    expect(style.fontFamily).not.toContain("Noto")
+    expect(style.fontWeight).toBe("400")
+  }
+}
+
 function tweenStartX(selector: string) {
   const tween = gsap.getTweensOf(selector).at(-1)
   if (!tween?.parent) return 0
@@ -385,12 +409,19 @@ describe("PM desk path", () => {
     expect(document.getElementById("widget-session")).toBeNull()
     expect(document.getElementById("desk-ink-total")).toBeNull()
     expect(document.getElementById("btn-logout")).toBeNull()
+    expect(document.getElementById("light")).toBeNull()
     expect(textLines("widget-category")).not.toContain("分类")
     expect(textLines("widget-subs")).not.toContain("订阅")
     expect(textLines("widget-charges")).not.toContain("扣费")
     expect(
       textLines("widget-compose").filter((line) => line === "记一笔")
     ).toHaveLength(1)
+    await expectDeskType("widget-category", () => "13")
+    await expectDeskType("widget-subs", (node) =>
+      node.id === "subs-monthly" ? "18" : "16"
+    )
+    await expectDeskType("widget-charges", () => "16")
+    await expectDeskType("widget-compose", () => "16")
     for (const id of [
       "widget-category",
       "widget-subs",
@@ -464,6 +495,7 @@ describe("PM desk path", () => {
     )
     expect(document.getElementById("desk-ink-total")).toBeNull()
     expect(document.getElementById("btn-logout")).toBeNull()
+    expect(document.getElementById("light")).toBeNull()
     expect(document.getElementById("subs-monthly")?.textContent).toMatch(
       /[$¥]\d+\.\d{2} \/ 月/
     )
@@ -473,6 +505,15 @@ describe("PM desk path", () => {
     expect(
       textLines("widget-subs").filter((line) => line.includes("/ 月"))
     ).toHaveLength(1)
+    await expectDeskType("widget-category", () => "13")
+    await expectDeskType("widget-subs", (node) =>
+      node.id === "subs-monthly" ? "18" : "16"
+    )
+    await expectDeskType("widget-charges", () => "16")
+    await expectDeskType("widget-compose", () => "16")
+    await expectDeskType("widget-session", (node) =>
+      (node.textContent ?? "").trim() === "退出" ? "13" : "18"
+    )
     expect(
       textLines("widget-charges").some((line) => line.includes("/ 月"))
     ).toBe(false)
