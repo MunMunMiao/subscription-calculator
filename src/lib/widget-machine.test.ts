@@ -121,9 +121,9 @@ describe("reduceDesk", () => {
     expect(swapped.held).toBe("charges")
   })
 
-  test("pick the already-held widget is a no-op", () => {
+  test("pick the already-held widget puts it down to desk idle", () => {
     const held = reduceDesk(deskIdle, { type: "pick", id: "compose" })
-    expect(reduceDesk(held, { type: "pick", id: "compose" })).toEqual(held)
+    expect(reduceDesk(held, { type: "pick", id: "compose" })).toEqual(deskIdle)
   })
 
   test("logout from desk → exit → login-only", () => {

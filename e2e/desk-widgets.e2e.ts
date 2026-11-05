@@ -39,9 +39,19 @@ test.describe("Widget desk smoke", () => {
     await expect(root).toHaveAttribute("data-phase", "held")
     await expect(root).toHaveAttribute("data-held", "category")
 
-    await page
-      .locator("#stage")
-      .click({ position: { x: 24, y: 24 }, force: true })
+    await page.locator("#widget-category").click()
+    await expect(root).toHaveAttribute("data-phase", "desk")
+    await expect(root).toHaveAttribute("data-held", "")
+
+    await page.locator("#widget-subs").click()
+    await expect(root).toHaveAttribute("data-held", "subs")
+    const hit = page.locator("#desk-hit")
+    const box = await hit.boundingBox()
+    expect(box).toBeTruthy()
+    await page.mouse.click(
+      box!.x + box!.width * 0.5,
+      box!.y + box!.height * 0.42
+    )
     await expect(root).toHaveAttribute("data-phase", "desk")
     await expect(root).toHaveAttribute("data-held", "")
 

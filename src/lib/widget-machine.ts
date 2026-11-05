@@ -115,7 +115,9 @@ export function reduceDesk(
     case "pick":
       if (state.locked) return state
       if (state.phase !== "desk" && state.phase !== "held") return state
-      if (state.phase === "held" && state.held === event.id) return state
+      if (state.phase === "held" && state.held === event.id) {
+        return withPhase("desk", null, false)
+      }
       return withPhase("held", event.id, false)
     case "put-down":
       if (state.locked) return state

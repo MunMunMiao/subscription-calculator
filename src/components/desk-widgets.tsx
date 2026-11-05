@@ -19,6 +19,7 @@ function Face({
   width,
   height,
   active,
+  onWidgetClick,
   children,
 }: {
   x: number
@@ -26,6 +27,7 @@ function Face({
   width: number
   height: number
   active: boolean
+  onWidgetClick?: () => void
   children: ReactNode
 }) {
   return (
@@ -36,6 +38,17 @@ function Face({
       height={height}
       className={active ? "widget-face is-open" : "widget-face"}
       pointerEvents={active ? "auto" : "none"}
+      onPointerUp={(event) => {
+        const node = event.target
+        if (node instanceof Element) {
+          if (node.closest("button, input, select, textarea, a, label")) {
+            event.stopPropagation()
+            return
+          }
+        }
+        event.stopPropagation()
+        onWidgetClick?.()
+      }}
     >
       <div className="widget-face-inner">{children}</div>
     </foreignObject>
@@ -154,7 +167,14 @@ export function CategoryWidget({
         >
           分类
         </text>
-        <Face x={-120} y={-90} width={250} height={200} active={held}>
+        <Face
+          x={-120}
+          y={-90}
+          width={250}
+          height={200}
+          active={held}
+          onWidgetClick={onPick}
+        >
           {children}
         </Face>
       </g>
@@ -238,7 +258,14 @@ export function SubsWidget({
         >
           订阅
         </text>
-        <Face x={-90} y={-80} width={156} height={190} active={held}>
+        <Face
+          x={-90}
+          y={-80}
+          width={156}
+          height={190}
+          active={held}
+          onWidgetClick={onPick}
+        >
           {children}
         </Face>
       </g>
@@ -310,7 +337,14 @@ export function ChargesWidget({
         >
           扣费
         </text>
-        <Face x={-230} y={-58} width={460} height={120} active={held}>
+        <Face
+          x={-230}
+          y={-58}
+          width={460}
+          height={120}
+          active={held}
+          onWidgetClick={onPick}
+        >
           {children}
         </Face>
       </g>
@@ -398,7 +432,14 @@ export function ComposeWidget({
         >
           记一笔
         </text>
-        <Face x={-108} y={-118} width={216} height={236} active={held}>
+        <Face
+          x={-108}
+          y={-118}
+          width={216}
+          height={236}
+          active={held}
+          onWidgetClick={onPick}
+        >
           {children}
         </Face>
       </g>
@@ -435,7 +476,7 @@ export function DeskInk({
         <g
           id="btn-logout"
           className="desk-widget"
-          transform="translate(800 860)"
+          transform="translate(180 860)"
           pointerEvents="auto"
           onPointerUp={(event) => {
             event.stopPropagation()

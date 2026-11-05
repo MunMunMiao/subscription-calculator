@@ -384,7 +384,7 @@ function Plant() {
     <g
       id="prop-plant"
       className="desk-prop plant"
-      transform="translate(1324 430)"
+      transform="translate(1480 520)"
     >
       <ellipse cx="4" cy="168" rx="70" ry="12" fill="#8d6a3a" opacity="0.2" />
       <path
@@ -543,64 +543,73 @@ export function DeskScene({
         </filter>
       </defs>
       <g id="desk">
-        <rect width="1600" height="900" fill={WOOD} onPointerUp={onDeskClick} />
-        {WOOD_MARKS.stains.map((stain, index) => (
-          <ellipse
-            key={`stain-${index}`}
-            cx={stain.cx}
-            cy={stain.cy}
-            rx={stain.rx}
-            ry={stain.ry}
-            transform={`rotate(${stain.rot} ${stain.cx} ${stain.cy})`}
-            fill="#8a6238"
-            opacity={stain.opacity}
-          />
-        ))}
-        <g fill="none" stroke="#7a4e28" strokeLinecap="round">
-          {WOOD_MARKS.grains.map((grain, index) => (
-            <path
-              key={`grain-${index}`}
-              d={grain.d}
-              opacity={grain.opacity}
-              strokeWidth={grain.width}
+        <rect
+          id="desk-hit"
+          width="1600"
+          height="900"
+          fill={WOOD}
+          pointerEvents="all"
+          onPointerUp={onDeskClick}
+        />
+        <g id="desk-art" pointerEvents="none">
+          {WOOD_MARKS.stains.map((stain, index) => (
+            <ellipse
+              key={`stain-${index}`}
+              cx={stain.cx}
+              cy={stain.cy}
+              rx={stain.rx}
+              ry={stain.ry}
+              transform={`rotate(${stain.rot} ${stain.cx} ${stain.cy})`}
+              fill="#8a6238"
+              opacity={stain.opacity}
             />
           ))}
-        </g>
-        {WOOD_MARKS.knots.map((knot, index) => (
-          <g
-            key={`knot-${index}`}
-            transform={`rotate(${knot.rot} ${knot.cx} ${knot.cy})`}
-          >
-            <ellipse
-              cx={knot.cx}
-              cy={knot.cy}
-              rx={knot.rx}
-              ry={knot.ry}
-              fill="#8a5a30"
-              stroke="#5c3a1c"
-              strokeWidth="1.6"
-              opacity="0.85"
-            />
-            <ellipse
-              cx={knot.cx}
-              cy={knot.cy}
-              rx={knot.rx * 0.55}
-              ry={knot.ry * 0.5}
-              fill="none"
-              stroke="#5c3a1c"
-              strokeWidth="1.2"
-              opacity="0.7"
-            />
-            <ellipse
-              cx={knot.cx - 2}
-              cy={knot.cy}
-              rx={knot.rx * 0.22}
-              ry={knot.ry * 0.2}
-              fill="#4a2e16"
-              opacity="0.8"
-            />
+          <g fill="none" stroke="#7a4e28" strokeLinecap="round">
+            {WOOD_MARKS.grains.map((grain, index) => (
+              <path
+                key={`grain-${index}`}
+                d={grain.d}
+                opacity={grain.opacity}
+                strokeWidth={grain.width}
+              />
+            ))}
           </g>
-        ))}
+          {WOOD_MARKS.knots.map((knot, index) => (
+            <g
+              key={`knot-${index}`}
+              transform={`rotate(${knot.rot} ${knot.cx} ${knot.cy})`}
+            >
+              <ellipse
+                cx={knot.cx}
+                cy={knot.cy}
+                rx={knot.rx}
+                ry={knot.ry}
+                fill="#8a5a30"
+                stroke="#5c3a1c"
+                strokeWidth="1.6"
+                opacity="0.85"
+              />
+              <ellipse
+                cx={knot.cx}
+                cy={knot.cy}
+                rx={knot.rx * 0.55}
+                ry={knot.ry * 0.5}
+                fill="none"
+                stroke="#5c3a1c"
+                strokeWidth="1.2"
+                opacity="0.7"
+              />
+              <ellipse
+                cx={knot.cx - 2}
+                cy={knot.cy}
+                rx={knot.rx * 0.22}
+                ry={knot.ry * 0.2}
+                fill="#4a2e16"
+                opacity="0.8"
+              />
+            </g>
+          ))}
+        </g>
       </g>
       <ellipse
         id="light"

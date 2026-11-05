@@ -158,6 +158,17 @@
   transform-origin: 50% 50%;
 }
 
+#desk-art,
+#desk-art *,
+#light,
+.desk-prop {
+  pointer-events: none;
+}
+
+#desk-hit {
+  pointer-events: all;
+}
+
 [data-phase="login-only"] .content-widget,
 [data-phase="desk"] #widget-login,
 [data-phase="held"] #widget-login,
