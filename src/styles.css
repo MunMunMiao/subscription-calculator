@@ -156,10 +156,20 @@
 .plant-leaf,
 .sparkle,
 .entity-motion,
+.scene-pose,
 #page,
-#ink-body {
+#ink-body,
+#book-cover {
   transform-box: fill-box;
   transform-origin: 50% 50%;
+}
+
+#book-cover {
+  transform-origin: 0% 50%;
+}
+
+.desk-root.is-scene-locked .desk-svg [data-interactive="true"] {
+  pointer-events: none;
 }
 
 .desk-svg [data-interactive="true"] {
@@ -177,6 +187,9 @@
   overflow: auto;
   color: #2a2118;
   font-family: "Noto Serif SC", "Songti SC", serif;
+  background: transparent;
+  box-shadow: none;
+  filter: none;
 }
 
 .ink-muted,
@@ -243,6 +256,7 @@
   padding: 0.2rem 0.1rem;
   width: 100%;
   border-radius: 0;
+  box-shadow: none;
 }
 
 .ink-field:focus {

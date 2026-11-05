@@ -25,10 +25,8 @@ import {
   type SubscriptionType,
 } from "@/lib/catalog"
 import { formatMoney } from "@/lib/money"
+import { type BrowseTab, type SceneName } from "@/lib/scene"
 import { type SpendItem } from "@/lib/spend"
-
-export type PaperMode =
-  "landing" | "summary" | "chart" | "list" | "upcoming" | "compose"
 
 export type SubscriptionRecord = SpendItem & {
   notes?: string | null
@@ -52,45 +50,45 @@ const INK_MUTED = "#5c4a38"
 const PAPER_WASH = "#f6eedc"
 
 export const TAB_ENTITIES: Array<{
-  mode: Exclude<PaperMode, "landing">
+  kind: BrowseTab | "record"
   id: string
   label: string
   fill: string
   rotate: number
 }> = [
   {
-    mode: "summary",
+    kind: "overview",
     id: "tab-overview",
     label: "总览",
     fill: "#f4d5dc",
     rotate: -1.6,
   },
   {
-    mode: "chart",
+    kind: "category",
     id: "tab-category",
     label: "分类",
     fill: "#d7ead0",
     rotate: 1.1,
   },
   {
-    mode: "list",
-    id: "tab-subscription",
+    kind: "subs",
+    id: "tab-subs",
     label: "订阅",
     fill: "#d7e8f3",
     rotate: -0.8,
   },
   {
-    mode: "upcoming",
-    id: "tab-billing",
+    kind: "charges",
+    id: "tab-charges",
     label: "扣费",
     fill: "#f3e3c2",
     rotate: 1.4,
   },
   {
-    mode: "compose",
+    kind: "record",
     id: "tab-record",
     label: "记一笔",
-    fill: "#efe4cc",
+    fill: "#d9cfc0",
     rotate: -1.2,
   },
 ]
@@ -223,44 +221,54 @@ function TapeMark({
       fill={fill}
       fillOpacity={opacity}
       stroke={INK}
-      strokeWidth="1.8"
+      strokeWidth="2.2"
       strokeLinejoin="round"
     />
   )
 }
 
 export function SceneTabs({
-  mode,
-  onGo,
+  scene,
+  tab,
+  onTab,
+  onCompose,
 }: {
-  mode: PaperMode
-  onGo: (next: Exclude<PaperMode, "landing">) => void
+  scene: SceneName
+  tab: BrowseTab
+  onTab: (next: BrowseTab) => void
+  onCompose: () => void
 }) {
   return (
     <g aria-label="手帐分页">
-      {TAB_ENTITIES.map((tab, index) => {
+      {TAB_ENTITIES.map((item, index) => {
         const x = 508 + index * 108
-        const active = mode === tab.mode
+        const settled =
+          item.kind === "record"
+            ? scene === "compose"
+            : scene === "browse" && tab === item.kind
         return (
           <SceneHit
-            key={tab.id}
-            id={tab.id}
+            key={item.id}
+            id={item.id}
             x={x}
             y={88}
             interactive
-            state={active ? "active" : "idle"}
-            label={tab.label}
-            onActivate={() => onGo(tab.mode)}
+            state={settled ? "settle" : "idle"}
+            label={item.label}
+            onActivate={() => {
+              if (item.kind === "record") onCompose()
+              else onTab(item.kind)
+            }}
           >
-            <g transform={`rotate(${tab.rotate})`}>
+            <g transform={`rotate(${item.rotate})`}>
               <TapeMark
                 width={100}
                 height={32}
-                fill={tab.fill}
-                opacity={active ? 1 : 0.88}
+                fill={item.fill}
+                opacity={settled ? 1 : 0.88}
               />
               <InkText x={50} y={22} size={15} anchor="middle">
-                {tab.label}
+                {item.label}
               </InkText>
             </g>
           </SceneHit>
@@ -279,29 +287,23 @@ export function SceneFooter({
 }) {
   return (
     <g>
-      <SceneHit id="brand-mark" x={520} y={lineY(20)} state="idle">
+      <SceneHit id="ink-sign" x={520} y={lineY(20)} state="idle">
         <InkText x={0} y={0} size={16} fill={INK_MUTED}>
           {name}
         </InkText>
       </SceneHit>
       <SceneHit
         id="btn-logout"
-        x={1028}
-        y={lineY(20) - 18}
+        x={1008}
+        y={lineY(20) - 22}
         interactive
         label="退出"
         onActivate={onLogout}
       >
-        <rect width="56" height="24" fill="transparent" />
-        <InkText x={56} y={18} size={16} fill={INK_MUTED} anchor="end">
+        <TapeMark width={72} height={28} fill={PAPER_WASH} />
+        <InkText x={36} y={19} size={14} anchor="middle">
           退出
         </InkText>
-        <path
-          d="M 8,21 H 52"
-          stroke={INK_MUTED}
-          strokeWidth="1.2"
-          opacity="0.7"
-        />
       </SceneHit>
     </g>
   )
@@ -332,7 +334,7 @@ function GitHubMark() {
 export function SceneLanding({ onLogin }: { onLogin: () => void }) {
   return (
     <g>
-      <SceneHit id="book-cover" x={800} y={318} state="closed">
+      <SceneHit id="brand-mark" x={800} y={318} state="idle">
         <Star x={-118} y={-58} size={1.05} />
         <Star x={122} y={-46} size={0.88} />
         <Star x={0} y={-78} size={0.68} />
@@ -356,7 +358,7 @@ export function SceneLanding({ onLogin }: { onLogin: () => void }) {
           rx="14"
           fill={PAPER_WASH}
           stroke={INK}
-          strokeWidth="2.6"
+          strokeWidth="2.2"
         />
         <g transform="translate(18 13) scale(1.08)">{GitHubMark()}</g>
         <InkText x={128} y={34} size={22} anchor="middle">
@@ -770,9 +772,52 @@ export function SceneUpcoming({
 
 export function SceneComposeHost({ children }: { children: ReactNode }) {
   return (
-    <foreignObject x="508" y="148" width="584" height="610">
+    <foreignObject id="compose-form" x="508" y="148" width="584" height="540">
       <div className="ink-form-host">{children}</div>
     </foreignObject>
+  )
+}
+
+export function SceneComposeActions({
+  submitting,
+  onBack,
+  onSave,
+}: {
+  submitting: boolean
+  onBack: () => void
+  onSave: () => void
+}) {
+  return (
+    <g>
+      <SceneHit
+        id="btn-back"
+        x={860}
+        y={lineY(18) - 8}
+        interactive
+        label="返回"
+        onActivate={onBack}
+      >
+        <TapeMark width={88} height={30} fill="transparent" />
+        <InkText x={44} y={21} size={15} anchor="middle">
+          返回
+        </InkText>
+      </SceneHit>
+      <SceneHit
+        id="btn-save"
+        x={962}
+        y={lineY(18) - 8}
+        interactive
+        disabled={submitting}
+        state={submitting ? "act" : "idle"}
+        label="保存"
+        onActivate={onSave}
+      >
+        <TapeMark width={88} height={30} fill={PAPER_WASH} />
+        <InkText x={44} y={21} size={15} anchor="middle">
+          {submitting ? "保存中…" : "保存"}
+        </InkText>
+      </SceneHit>
+    </g>
   )
 }
 
@@ -780,23 +825,19 @@ export function ComposeFace({
   form,
   setForm,
   editing,
-  submitting,
   onSubmit,
-  onCancel,
 }: {
   form: FormValues
   setForm: Dispatch<SetStateAction<FormValues>>
   editing: boolean
-  submitting: boolean
   onSubmit: (event: FormEvent) => void
-  onCancel: () => void
 }) {
   function update<K extends keyof FormValues>(key: K, value: FormValues[K]) {
     setForm((current) => ({ ...current, [key]: value }))
   }
 
   return (
-    <form className="ink-form" onSubmit={onSubmit}>
+    <form id="ink-form" className="ink-form" onSubmit={onSubmit}>
       <p className="ink-kicker">{editing ? "改一笔" : "记一笔"}</p>
       <label>
         名称
@@ -990,18 +1031,6 @@ export function ComposeFace({
           onChange={(event) => update("notes", event.target.value)}
         />
       </label>
-      <div className="ink-row end">
-        <button
-          type="button"
-          className="ink-btn ink-btn-ghost"
-          onClick={onCancel}
-        >
-          返回
-        </button>
-        <button type="submit" className="ink-btn" disabled={submitting}>
-          {submitting ? "保存中…" : "保存"}
-        </button>
-      </div>
     </form>
   )
 }

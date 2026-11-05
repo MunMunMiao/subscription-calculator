@@ -1,13 +1,14 @@
 "use client"
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { useRef, useState, type FormEvent } from "react"
+import { useEffect, useRef, useState, type FormEvent } from "react"
 import { toast } from "sonner"
 
 import { DeskScene } from "@/components/desk-scene"
 import {
   ComposeFace,
   SceneChart,
+  SceneComposeActions,
   SceneComposeHost,
   SceneFooter,
   SceneLanding,
@@ -16,13 +17,26 @@ import {
   SceneTabs,
   SceneUpcoming,
   type FormValues,
-  type PaperMode,
   type SubscriptionRecord,
 } from "@/components/paper-ink"
 import { isCategory, type Currency } from "@/lib/catalog"
 import { gsap, useGSAP } from "@/lib/gsap"
 import { authClient } from "@/lib/auth-client"
 import { centsToAmount } from "@/lib/money"
+import {
+  applyScenePose,
+  bindStickers,
+  enterCompose,
+  exitCompose,
+  JUST_AUTHED_KEY,
+  playAmbient,
+  playClosing,
+  playOpening,
+  playTabFlip,
+  tabSelector,
+  type BrowseTab,
+  type SceneName,
+} from "@/lib/scene"
 import {
   categoryBreakdown,
   sixMonthForecast,
@@ -53,7 +67,7 @@ const EMPTY_FORM: FormValues = {
 }
 
 function assertNever(value: never): never {
-  throw new Error(`Unhandled paper mode: ${String(value)}`)
+  throw new Error(`Unhandled scene: ${String(value)}`)
 }
 
 function recordToForm(item: SubscriptionRecord): FormValues {
@@ -71,22 +85,22 @@ function recordToForm(item: SubscriptionRecord): FormValues {
   }
 }
 
-function motionOf(node: Element) {
-  return node.querySelector(".entity-motion") ?? node
-}
-
 export function DeskApp({ user }: { user: DeskUser }) {
   const rootRef = useRef<HTMLDivElement>(null)
   const queryClient = useQueryClient()
-  const [mode, setMode] = useState<PaperMode>(user ? "summary" : "landing")
+  const [scene, setScene] = useState<SceneName>(user ? "browse" : "sealed")
+  const [tab, setTab] = useState<BrowseTab>("overview")
+  const [returnTab, setReturnTab] = useState<BrowseTab>("overview")
   const [editing, setEditing] = useState<SubscriptionRecord | undefined>()
   const [form, setForm] = useState<FormValues>(EMPTY_FORM)
   const [currency, setCurrency] = useState<Currency>("USD")
   const [now] = useState(() => new Date())
+  const prevTab = useRef<BrowseTab>("overview")
+  const locked = scene === "opening" || scene === "closing"
 
   const listQuery = useQuery({
     ...orpc.subscriptions.list.queryOptions(),
-    enabled: Boolean(user),
+    enabled: Boolean(user) && scene !== "sealed",
   })
   const items = (listQuery.data ?? []) as SubscriptionRecord[]
   const currencies = usedCurrencies(items)
@@ -109,7 +123,11 @@ export function DeskApp({ user }: { user: DeskUser }) {
         toast.success("已记下")
         setEditing(undefined)
         setForm(EMPTY_FORM)
-        setMode("list")
+        const tl = exitCompose(true)
+        tl.eventCallback("onComplete", () => {
+          setTab(returnTab)
+          setScene("browse")
+        })
         await invalidate()
       },
       onError: (error) => toast.error(error.message),
@@ -122,7 +140,11 @@ export function DeskApp({ user }: { user: DeskUser }) {
         toast.success("已更新")
         setEditing(undefined)
         setForm(EMPTY_FORM)
-        setMode("list")
+        const tl = exitCompose(true)
+        tl.eventCallback("onComplete", () => {
+          setTab(returnTab)
+          setScene("browse")
+        })
         await invalidate()
       },
       onError: (error) => toast.error(error.message),
@@ -150,50 +172,38 @@ export function DeskApp({ user }: { user: DeskUser }) {
     })
   )
 
+  useEffect(() => {
+    if (!user) return
+    if (sessionStorage.getItem(JUST_AUTHED_KEY) !== "1") return
+    sessionStorage.removeItem(JUST_AUTHED_KEY)
+    const id = window.setTimeout(() => setScene("opening"), 0)
+    return () => window.clearTimeout(id)
+  }, [user])
+
+  useEffect(() => {
+    const stage = rootRef.current?.querySelector("#stage")
+    stage?.setAttribute("data-scene", scene)
+    const page = rootRef.current?.querySelector("#page")
+    page?.setAttribute(
+      "data-state",
+      scene === "sealed" || scene === "closing" ? "sealed" : "open"
+    )
+  }, [scene])
+
   useGSAP(
     () => {
       const mm = gsap.matchMedia()
       mm.add(
-        {
-          reduceMotion: "(prefers-reduced-motion: reduce)",
-        },
+        { reduceMotion: "(prefers-reduced-motion: reduce)" },
         (context) => {
           const reduce = Boolean(context.conditions?.reduceMotion)
-          const duration = reduce ? 0 : 0.7
-          gsap.set("#page", {
-            rotation: -0.55,
-            transformOrigin: "50% 50%",
-          })
-          const tl = gsap.timeline({
-            defaults: { ease: "power2.out", duration },
-          })
-          tl.from(
-            ".desk-prop",
-            {
-              autoAlpha: 0,
-              scale: 0.86,
-              y: 18,
-              stagger: reduce ? 0 : 0.05,
-              transformOrigin: "50% 50%",
-            },
-            0
-          )
-          tl.from(
-            "#page",
-            { rotation: -6, x: reduce ? 0 : -18, transformOrigin: "0% 50%" },
-            0.12
-          )
+          gsap.set("#page", { rotation: -0.55, transformOrigin: "50% 50%" })
           if (!reduce) {
-            tl.from(
-              ".paper-line",
-              { drawSVG: 0, stagger: 0.018, duration: 0.55 },
-              0.18
-            )
-            tl.from(
-              ".sparkle",
-              { scale: 0, stagger: 0.07, ease: "back.out(2.2)" },
-              0.42
-            )
+            gsap.from(".paper-line", {
+              drawSVG: 0,
+              stagger: 0.018,
+              duration: 0.55,
+            })
             gsap.to(".plant-leaf", {
               rotation: 2.6,
               transformOrigin: "50% 90%",
@@ -219,6 +229,7 @@ export function DeskApp({ user }: { user: DeskUser }) {
               duration: 3.2,
               ease: "sine.inOut",
             })
+            playAmbient()
           }
         }
       )
@@ -229,139 +240,100 @@ export function DeskApp({ user }: { user: DeskUser }) {
 
   useGSAP(
     () => {
-      const tape = gsap.utils.toArray<Element>("[id^='tab-']")
-      const pens = gsap.utils.toArray<Element>(
-        "#btn-write, #btn-sample, #btn-logout, #btn-login, [id^='list-']"
-      )
-      const cleanups: Array<() => void> = []
-
-      for (const node of tape) {
-        const motion = motionOf(node)
-        const enter = () => {
-          gsap.to(motion, { y: -3, rotation: -1, duration: 0.4 })
-          if (node.getAttribute("data-state") !== "active") {
-            node.setAttribute("data-state", "hover")
-          }
-        }
-        const leave = () => {
-          gsap.to(motion, { y: 0, rotation: 0, duration: 0.4 })
-          if (node.getAttribute("data-state") === "hover") {
-            node.setAttribute("data-state", "idle")
-          }
-        }
-        node.addEventListener("pointerenter", enter)
-        node.addEventListener("pointerleave", leave)
-        cleanups.push(() => {
-          node.removeEventListener("pointerenter", enter)
-          node.removeEventListener("pointerleave", leave)
-        })
-      }
-
-      for (const node of pens) {
-        const motion = motionOf(node)
-        const down = () => {
-          gsap.to(motion, { scale: 0.98, y: 1, duration: 0.12 })
-          node.setAttribute("data-state", "press")
-        }
-        const up = () => {
-          gsap.to(motion, { scale: 1, y: 0, duration: 0.18 })
-          if (node.getAttribute("data-state") === "press") {
-            node.setAttribute("data-state", "idle")
-          }
-        }
-        node.addEventListener("pointerdown", down)
-        node.addEventListener("pointerup", up)
-        node.addEventListener("pointerleave", up)
-        cleanups.push(() => {
-          node.removeEventListener("pointerdown", down)
-          node.removeEventListener("pointerup", up)
-          node.removeEventListener("pointerleave", up)
-        })
-      }
-
-      return () => {
-        for (const cleanup of cleanups) cleanup()
-      }
+      const root = rootRef.current
+      if (!root) return
+      return bindStickers(root, () => locked)
     },
-    { scope: rootRef, dependencies: [mode, user] }
+    { scope: rootRef, dependencies: [scene, tab, user] }
   )
 
   useGSAP(
     () => {
-      const page = document.querySelector("#page")
-      const ink = document.querySelector("#ink-body")
-      if (!page || !ink) return
-      const mm = gsap.matchMedia()
-      mm.add(
-        { reduceMotion: "(prefers-reduced-motion: reduce)" },
-        (context) => {
-          const reduce = Boolean(context.conditions?.reduceMotion)
-          page.setAttribute("data-state", "turn")
-          gsap.fromTo(
-            ink,
-            {
-              x: reduce ? 0 : 18,
-              rotation: reduce ? 0 : 2.2,
-              transformOrigin: "0% 50%",
-            },
-            {
-              x: 0,
-              rotation: 0,
-              duration: reduce ? 0 : 0.52,
-              ease: "power2.out",
-              onComplete: () => {
-                page.setAttribute("data-state", "open")
-              },
-            }
-          )
-        }
-      )
-      return () => mm.revert()
+      applyScenePose(scene)
+      if (scene === "opening") {
+        const tl = playOpening(() => {
+          setTab("overview")
+          setScene("browse")
+        })
+        return () => tl.kill()
+      }
+      if (scene === "closing") {
+        const tl = playClosing(() => {
+          setScene("sealed")
+          void authClient.signOut().then(() => {
+            window.location.assign("/")
+          })
+        })
+        return () => tl.kill()
+      }
+      if (scene === "compose") {
+        const tl = enterCompose()
+        return () => tl.kill()
+      }
     },
-    { scope: rootRef, dependencies: [mode], revertOnUpdate: true }
+    { scope: rootRef, dependencies: [scene] }
+  )
+
+  useGSAP(
+    () => {
+      if (scene !== "browse") {
+        prevTab.current = tab
+        return
+      }
+      if (prevTab.current === tab) return
+      const from = tabSelector(prevTab.current)
+      const to = tabSelector(tab)
+      prevTab.current = tab
+      const tl = playTabFlip(from, to, () => undefined)
+      return () => tl.kill()
+    },
+    { scope: rootRef, dependencies: [tab, scene] }
   )
 
   function login() {
+    if (locked) return
+    sessionStorage.setItem(JUST_AUTHED_KEY, "1")
     void authClient.signIn.social({
       provider: "github",
       callbackURL: "/",
     })
   }
 
-  async function logout() {
-    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches
-    const motion = document.querySelector("#btn-logout .entity-motion")
-    const finish = () => {
-      void authClient.signOut().then(() => {
-        window.location.assign("/")
-      })
-    }
-    if (!motion) {
-      finish()
-      return
-    }
-    document.querySelector("#btn-logout")?.setAttribute("data-state", "press")
-    gsap.to(motion, {
-      scale: 0.98,
-      y: 1,
-      duration: reduce ? 0 : 0.18,
-      ease: "power2.in",
-      onComplete: finish,
-    })
+  function logout() {
+    if (locked) return
+    setScene("closing")
   }
 
-  function go(next: PaperMode) {
-    if (next === "compose" && mode !== "compose") {
-      setEditing(undefined)
-      setForm(EMPTY_FORM)
-    }
-    setMode(next)
+  function goTab(next: BrowseTab) {
+    if (locked) return
+    setTab(next)
+    setScene("browse")
+  }
+
+  function goCompose() {
+    if (locked) return
+    if (scene === "browse") setReturnTab(tab)
+    setEditing(undefined)
+    setForm(EMPTY_FORM)
+    setScene("compose")
   }
 
   function openEdit(item: SubscriptionRecord) {
+    if (locked) return
+    if (scene === "browse") setReturnTab(tab)
     setEditing(item)
     setForm(recordToForm(item))
-    setMode("compose")
+    setScene("compose")
+  }
+
+  function cancelCompose() {
+    const tl = exitCompose(false)
+    tl.eventCallback("onComplete", () => {
+      setEditing(undefined)
+      setForm(EMPTY_FORM)
+      setTab(returnTab)
+      setScene("browse")
+    })
   }
 
   function submitForm(event: FormEvent) {
@@ -388,77 +360,105 @@ export function DeskApp({ user }: { user: DeskUser }) {
     createMutation.mutate(payload)
   }
 
+  function saveCompose() {
+    const formEl = document.querySelector<HTMLFormElement>("#ink-form")
+    formEl?.requestSubmit()
+  }
+
   function renderInk() {
-    switch (mode) {
-      case "landing":
-        return <SceneLanding onLogin={login} />
-      case "summary":
-        return (
-          <SceneSummary
-            loading={listQuery.isLoading}
-            items={items}
-            totals={totals}
-            currency={activeCurrency}
-            currencies={currencies}
-            onCurrency={setCurrency}
-            onCompose={() => go("compose")}
-            onSeed={() => seedMutation.mutate(undefined)}
-            seeding={seedMutation.isPending}
-          />
-        )
-      case "chart":
-        return (
-          <SceneChart
-            loading={listQuery.isLoading}
-            slices={slices}
-            forecast={forecast}
-            currency={activeCurrency}
-          />
-        )
-      case "list":
-        return (
-          <SceneList
-            loading={listQuery.isLoading}
-            items={items}
-            onEdit={openEdit}
-            onDelete={(item) => {
-              if (window.confirm(`删除「${item.name}」？`)) {
-                removeMutation.mutate({ id: item.id })
-              }
-            }}
-            onCompose={() => go("compose")}
-            onSeed={() => seedMutation.mutate(undefined)}
-            seeding={seedMutation.isPending}
-          />
-        )
-      case "upcoming":
-        return <SceneUpcoming loading={listQuery.isLoading} charges={charges} />
+    switch (scene) {
+      case "sealed":
+      case "opening":
+        return null
+      case "closing":
+      case "browse":
+        switch (tab) {
+          case "overview":
+            return (
+              <SceneSummary
+                loading={listQuery.isLoading}
+                items={items}
+                totals={totals}
+                currency={activeCurrency}
+                currencies={currencies}
+                onCurrency={setCurrency}
+                onCompose={goCompose}
+                onSeed={() => seedMutation.mutate(undefined)}
+                seeding={seedMutation.isPending}
+              />
+            )
+          case "category":
+            return (
+              <SceneChart
+                loading={listQuery.isLoading}
+                slices={slices}
+                forecast={forecast}
+                currency={activeCurrency}
+              />
+            )
+          case "subs":
+            return (
+              <SceneList
+                loading={listQuery.isLoading}
+                items={items}
+                onEdit={openEdit}
+                onDelete={(item) => {
+                  if (window.confirm(`删除「${item.name}」？`)) {
+                    removeMutation.mutate({ id: item.id })
+                  }
+                }}
+                onCompose={goCompose}
+                onSeed={() => seedMutation.mutate(undefined)}
+                seeding={seedMutation.isPending}
+              />
+            )
+          case "charges":
+            return (
+              <SceneUpcoming loading={listQuery.isLoading} charges={charges} />
+            )
+          default:
+            return assertNever(tab)
+        }
       case "compose":
         return (
-          <SceneComposeHost>
-            <ComposeFace
-              form={form}
-              setForm={setForm}
-              editing={Boolean(editing)}
+          <g>
+            <SceneComposeHost>
+              <ComposeFace
+                form={form}
+                setForm={setForm}
+                editing={Boolean(editing)}
+                onSubmit={submitForm}
+              />
+            </SceneComposeHost>
+            <SceneComposeActions
               submitting={createMutation.isPending || updateMutation.isPending}
-              onSubmit={submitForm}
-              onCancel={() => {
-                setEditing(undefined)
-                setForm(EMPTY_FORM)
-                setMode("list")
-              }}
+              onBack={cancelCompose}
+              onSave={saveCompose}
             />
-          </SceneComposeHost>
+          </g>
         )
       default:
-        return assertNever(mode)
+        return assertNever(scene)
     }
   }
 
+  const showChrome = Boolean(user) && scene !== "sealed"
+
   return (
-    <div ref={rootRef} className="desk-root">
-      <DeskScene>
-        {user ? <SceneTabs mode={mode} onGo={go} /> : null}
+    <div
+      ref={rootRef}
+      className={`desk-root${locked ? " is-scene-locked" : ""}`}
+      data-scene={scene}
+    >
+      <DeskScene cover={<SceneLanding onLogin={login} />}>
+        {showChrome || scene === "opening" || scene === "closing" ? (
+          <SceneTabs
+            scene={scene}
+            tab={tab}
+            onTab={goTab}
+            onCompose={goCompose}
+          />
+        ) : null}
         <g
           id="ink-body"
           className="entity-motion"
@@ -466,8 +466,8 @@ export function DeskApp({ user }: { user: DeskUser }) {
         >
           {renderInk()}
         </g>
-        {user ? (
-          <SceneFooter name={user.name} onLogout={() => void logout()} />
+        {showChrome ? (
+          <SceneFooter name={user?.name ?? ""} onLogout={logout} />
         ) : null}
       </DeskScene>
     </div>
