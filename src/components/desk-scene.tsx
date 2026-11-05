@@ -15,11 +15,11 @@ function buildWood() {
   const rand = rng(20261103)
   const grains: Array<{ d: string; opacity: number; width: number }> = []
   for (let i = 0; i < 58; i++) {
-    const y0 = -30 + i * 16.2 + rand() * 7
+    const y0 = -30 + i * 14.4 + rand() * 7
     let d = `M -40 ${y0.toFixed(1)}`
     let x = -40
     let y = y0
-    while (x < 1640) {
+    while (x < 1320) {
       const nx = x + 90 + rand() * 50
       const ny = y + (rand() - 0.48) * 16
       const cx = (x + nx) / 2
@@ -36,16 +36,16 @@ function buildWood() {
   }
 
   const knots = Array.from({ length: 9 }, () => ({
-    cx: 80 + rand() * 1440,
-    cy: 60 + rand() * 780,
+    cx: 64 + rand() * 1152,
+    cy: 48 + rand() * 700,
     rx: 14 + rand() * 22,
     ry: 9 + rand() * 14,
     rot: rand() * 80 - 40,
   }))
 
   const stains = Array.from({ length: 12 }, () => ({
-    cx: 40 + rand() * 1520,
-    cy: 30 + rand() * 840,
+    cx: 32 + rand() * 1216,
+    cy: 24 + rand() * 750,
     rx: 40 + rand() * 120,
     ry: 18 + rand() * 50,
     rot: rand() * 60 - 30,
@@ -71,7 +71,7 @@ function Heart({ fill = "#e27898" }: { fill?: string }) {
 
 function Pencil() {
   return (
-    <g id="prop-pen-slot" className="desk-prop" transform="translate(168 118)">
+    <g id="prop-pen-slot" className="desk-prop" transform="translate(134 94)">
       <g id="prop-pen">
         <g className="pencil" transform="rotate(-42)">
           <path
@@ -138,7 +138,7 @@ function PolkaWashi() {
   return (
     <g
       className="desk-prop polka-washi"
-      transform="translate(78 292) rotate(-18)"
+      transform="translate(62 234) rotate(-18)"
     >
       <path
         d="M 4,8 L 58,2 L 62,68 L 50,72 L 44,66 L 8,74 Z"
@@ -178,7 +178,7 @@ function FloralRoll() {
       id="prop-tape-floral"
       className="desk-prop floral-roll"
       data-interactive="true"
-      transform="translate(118 682) rotate(-12)"
+      transform="translate(94 546) rotate(-12)"
     >
       <ellipse
         cx="6"
@@ -283,7 +283,7 @@ function Mug() {
     <g
       id="prop-cup-slot"
       className="desk-prop mug"
-      transform="translate(1310 92)"
+      transform="translate(1048 74)"
     >
       <g id="prop-cup">
         <ellipse
@@ -399,7 +399,7 @@ function Plant() {
     <g
       id="prop-plant-slot"
       className="desk-prop plant"
-      transform="translate(1480 520)"
+      transform="translate(1184 416)"
     >
       <g id="prop-plant">
         <ellipse cx="4" cy="168" rx="70" ry="12" fill="#8d6a3a" opacity="0.2" />
@@ -487,7 +487,7 @@ function BlueWashi() {
       id="prop-tape-blue"
       className="desk-prop blue-washi"
       data-interactive="true"
-      transform="translate(1458 528) rotate(16)"
+      transform="translate(1166 422) rotate(16)"
     >
       <path
         d="M 2,4 L 36,0 L 40,44 L 28,48 L 22,42 L 4,46 Z"
@@ -509,7 +509,7 @@ function GinghamWashi() {
       id="prop-tape-gingham"
       className="desk-prop gingham-washi"
       data-interactive="true"
-      transform="translate(1418 792) rotate(12)"
+      transform="translate(1134 634) rotate(12)"
     >
       <path
         d="M 0,8 L 18,2 L 86,10 L 92,38 L 78,44 L 64,36 L 8,42 Z"
@@ -543,7 +543,7 @@ export function DeskScene({
     <svg
       id="stage"
       className="desk-svg"
-      viewBox="0 0 1600 900"
+      viewBox="0 0 1280 800"
       preserveAspectRatio="xMidYMid slice"
       role="img"
       aria-label="手帐桌面"
@@ -562,8 +562,8 @@ export function DeskScene({
       <g id="desk">
         <rect
           id="desk-hit"
-          width="1600"
-          height="900"
+          width="1280"
+          height="800"
           fill={WOOD}
           pointerEvents="all"
           onPointerUp={onDeskClick}
@@ -630,10 +630,10 @@ export function DeskScene({
       </g>
       <ellipse
         id="light"
-        cx="800"
-        cy="80"
-        rx="420"
-        ry="70"
+        cx="640"
+        cy="64"
+        rx="336"
+        ry="56"
         fill="#f4e4c2"
         opacity="0.18"
         pointerEvents="none"
@@ -644,13 +644,13 @@ export function DeskScene({
         <Pencil />
         <PolkaWashi />
         <FloralRoll />
-        <Clip x={248} y={768} rotation={18} color="#e27898" />
-        <Clip x={318} y={786} rotation={-12} color="#d4a84b" />
+        <Clip x={198} y={614} rotation={18} color="#e27898" />
+        <Clip x={254} y={629} rotation={-12} color="#d4a84b" />
         <Mug />
         <Plant />
         <BlueWashi />
-        <Clip x={1178} y={768} rotation={-8} color="#4a7ab8" />
-        <Clip x={1262} y={792} rotation={14} color="#d4a84b" />
+        <Clip x={942} y={614} rotation={-8} color="#4a7ab8" />
+        <Clip x={1010} y={634} rotation={14} color="#d4a84b" />
         <GinghamWashi />
       </g>
       <g id="widget-layer">{children}</g>

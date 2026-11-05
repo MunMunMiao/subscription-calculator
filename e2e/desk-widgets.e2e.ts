@@ -4,6 +4,23 @@ function desk(page: Page) {
   return page.getByTestId("desk-root")
 }
 
+async function gsapXY(page: Page, selector: string) {
+  return page.locator(selector).evaluate((node) => {
+    const vars = (
+      node as SVGElement & {
+        _gsap?: { x: string | number; y: string | number }
+      }
+    )._gsap
+    if (!vars) return { x: 0, y: 0 }
+    const x = Number.parseFloat(String(vars.x ?? "0"))
+    const y = Number.parseFloat(String(vars.y ?? "0"))
+    return {
+      x: Number.isFinite(x) ? x : 0,
+      y: Number.isFinite(y) ? y : 0,
+    }
+  })
+}
+
 test.describe("Widget desk smoke", () => {
   test("login-only shows only widget-login; no overview widget", async ({
     page,
@@ -26,7 +43,15 @@ test.describe("Widget desk smoke", () => {
     await page.goto("/?e2e=browse")
     const root = desk(page)
     await expect(root).toHaveAttribute("data-phase", /enter|desk/)
+    let maxAbs = 0
+    for (let i = 0; i < 20; i++) {
+      const category = await gsapXY(page, "#widget-category")
+      maxAbs = Math.max(maxAbs, Math.abs(category.x), Math.abs(category.y))
+      if ((await root.getAttribute("data-phase")) === "desk") break
+      await page.waitForTimeout(50)
+    }
     await expect(root).toHaveAttribute("data-phase", "desk", { timeout: 8_000 })
+    if (maxAbs > 0) expect(maxAbs).toBeGreaterThan(160)
     await expect(root).toHaveAttribute("data-held", "")
     await expect(page.locator("#widget-overview")).toHaveCount(0)
     await expect(page.locator("#widget-login")).toBeHidden()
@@ -74,6 +99,14 @@ test.describe("Widget desk smoke", () => {
 
     await page.locator("#btn-logout").click()
     await expect(root).toHaveAttribute("data-phase", /exit|login-only/)
+    let minLoginY = 0
+    for (let i = 0; i < 24; i++) {
+      const login = await gsapXY(page, "#widget-login")
+      minLoginY = Math.min(minLoginY, login.y)
+      if ((await root.getAttribute("data-phase")) === "login-only") break
+      await page.waitForTimeout(50)
+    }
+    expect(minLoginY).toBeLessThanOrEqual(-400)
     await expect(page.locator("#widget-login")).toBeInViewport({
       timeout: 8_000,
     })
@@ -111,11 +144,8 @@ test.describe("Widget desk smoke", () => {
     const slot = page.locator("#prop-pen-slot")
     await expect(slot).toHaveAttribute(
       "transform",
-      /translate\(\s*168\s+118\s*\)/
+      /translate\(\s*134\s+94\s*\)/
     )
-
-    const before = await page.locator("#prop-pen").boundingBox()
-    expect(before).toBeTruthy()
 
     const hit = page.locator("#desk-hit")
     const deskBox = await hit.boundingBox()
@@ -139,18 +169,12 @@ test.describe("Widget desk smoke", () => {
 
     await expect(slot).toHaveAttribute(
       "transform",
-      /translate\(\s*168\s+118\s*\)/
+      /translate\(\s*134\s+94\s*\)/
     )
     await expect
       .poll(async () => {
-        const after = await page.locator("#prop-pen").boundingBox()
-        if (!after || !before) return false
-        return (
-          Math.abs(after.x - before.x) < 24 &&
-          Math.abs(after.y - before.y) < 24 &&
-          after.x > 0 &&
-          after.y > 0
-        )
+        const pen = await gsapXY(page, "#prop-pen")
+        return Math.abs(pen.x) < 2 && Math.abs(pen.y) < 2
       })
       .toBe(true)
   })

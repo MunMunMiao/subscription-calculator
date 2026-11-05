@@ -33,11 +33,11 @@ const CHIP_SLOTS = [
 ] as const
 
 export const WIDGET_SLOTS = {
-  login: { x: 800, y: 430 },
-  category: { x: 270, y: 520 },
-  subs: { x: 1300, y: 310 },
-  charges: { x: 800, y: 760 },
-  compose: { x: 400, y: 210 },
+  login: { x: 640, y: 344 },
+  category: { x: 216, y: 416 },
+  subs: { x: 1040, y: 248 },
+  charges: { x: 640, y: 608 },
+  compose: { x: 320, y: 168 },
 } as const
 
 type SubRow = {
@@ -74,7 +74,7 @@ function LoginFace({ children }: { children: ReactNode }) {
       x={-130}
       y={24}
       width={260}
-      height={90}
+      height={56}
       className="login-face"
       pointerEvents="auto"
     >
@@ -83,7 +83,13 @@ function LoginFace({ children }: { children: ReactNode }) {
   )
 }
 
-export function LoginWidget({ children }: { children: ReactNode }) {
+export function LoginWidget({
+  children,
+  onPreviewEnter,
+}: {
+  children: ReactNode
+  onPreviewEnter?: () => void
+}) {
   return (
     <g transform={`translate(${WIDGET_SLOTS.login.x} ${WIDGET_SLOTS.login.y})`}>
       <g
@@ -132,6 +138,38 @@ export function LoginWidget({ children }: { children: ReactNode }) {
           手帐
         </text>
         <LoginFace>{children}</LoginFace>
+        {onPreviewEnter ? (
+          <g
+            id="btn-e2e-enter"
+            transform="translate(0 100)"
+            style={{ pointerEvents: "all", cursor: "pointer" }}
+            onPointerUp={(event) => {
+              event.stopPropagation()
+              onPreviewEnter()
+            }}
+          >
+            <rect
+              x="-72"
+              y="-16"
+              width="144"
+              height="30"
+              rx="10"
+              fill="#f6eedc"
+              stroke={INK}
+              strokeWidth="2"
+            />
+            <text
+              x="0"
+              y="5"
+              textAnchor="middle"
+              fill={INK}
+              fontSize="14"
+              fontFamily="Noto Serif SC, serif"
+            >
+              进入桌面
+            </text>
+          </g>
+        ) : null}
       </g>
     </g>
   )
@@ -804,8 +842,8 @@ export function DeskInk({
     <g id="desk-ink" pointerEvents="none">
       <text
         id="desk-ink-total"
-        x="800"
-        y="64"
+        x="640"
+        y="51"
         textAnchor="middle"
         fill={INK}
         fontSize="22"
@@ -818,7 +856,7 @@ export function DeskInk({
         <g
           id="btn-logout"
           className="desk-widget"
-          transform="translate(180 860)"
+          transform="translate(144 688)"
           pointerEvents="auto"
           onPointerUp={(event) => {
             event.stopPropagation()

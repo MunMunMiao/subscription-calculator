@@ -15,11 +15,15 @@ export const CONTENT_SELECTORS = [
   "#widget-compose",
 ] as const
 
+export const STAGE = { w: 1280, h: 800 } as const
+export const OFF = 480
+export const LOGIN_OUT = { x: 48, y: -720, rotate: -8 } as const
+
 export const FROM = {
-  "#widget-category": { x: -120, y: -40 },
-  "#widget-subs": { x: 120, y: -30 },
-  "#widget-charges": { x: -80, y: 90 },
-  "#widget-compose": { x: 100, y: 80 },
+  "#widget-category": { x: -OFF, y: -80 },
+  "#widget-subs": { x: OFF, y: -60 },
+  "#widget-charges": { x: -OFF, y: 120 },
+  "#widget-compose": { x: OFF, y: 140 },
 } as const
 
 export const WIDGET_FOUR = {
@@ -96,7 +100,11 @@ export function poseLoginOnly() {
 }
 
 export function poseRefreshStart() {
-  gsap.set("#widget-login", { autoAlpha: 0, x: 0, y: -200 })
+  gsap.set("#widget-login", {
+    autoAlpha: 0,
+    x: 0,
+    y: LOGIN_OUT.y,
+  })
 }
 
 export function playEnterAfterLogin(onDone: () => void) {
@@ -113,18 +121,21 @@ export function playEnterAfterLogin(onDone: () => void) {
     .to(
       "#widget-login",
       {
-        y: -160,
-        x: 40,
-        rotate: -6,
+        ...LOGIN_OUT,
         autoAlpha: 1,
-        duration: 0.55,
+        duration: 0.65,
         ease: "power1.out",
       },
       "loginOut"
     )
-    .set("#widget-login", { autoAlpha: 0, x: 0, y: -200 })
+    .set("#widget-login", {
+      autoAlpha: 0,
+      x: 0,
+      y: LOGIN_OUT.y,
+      rotate: 0,
+    })
 
-  tl.addLabel("flyIn", "loginOut+=0.25")
+  tl.addLabel("flyIn", "loginOut+=0.28")
   CONTENT_SELECTORS.forEach((sel, i) => {
     const from = FROM[sel]
     tl.fromTo(
@@ -132,7 +143,7 @@ export function playEnterAfterLogin(onDone: () => void) {
       {
         x: from.x,
         y: from.y,
-        rotate: i % 2 ? 4 : -4,
+        rotate: i % 2 ? 5 : -5,
         scale: 0.96,
         autoAlpha: 1,
       },
@@ -141,10 +152,10 @@ export function playEnterAfterLogin(onDone: () => void) {
         y: 0,
         rotate: 0,
         scale: 1,
-        duration: 0.55,
+        duration: 0.6,
         ease: "power1.out",
       },
-      `flyIn+=${i * 0.07}`
+      `flyIn+=${i * 0.08}`
     )
   })
 
@@ -153,7 +164,11 @@ export function playEnterAfterLogin(onDone: () => void) {
 
 export function playEnterLoggedInRefresh(onDone: () => void) {
   lockStage(true)
-  gsap.set("#widget-login", { autoAlpha: 0, x: 0, y: -200 })
+  gsap.set("#widget-login", {
+    autoAlpha: 0,
+    x: 0,
+    y: LOGIN_OUT.y,
+  })
   const tl = gsap.timeline({
     defaults: { ease: "power2.inOut" },
     onComplete: () => {
@@ -170,7 +185,7 @@ export function playEnterLoggedInRefresh(onDone: () => void) {
       {
         x: from.x,
         y: from.y,
-        rotate: i % 2 ? 4 : -4,
+        rotate: i % 2 ? 5 : -5,
         scale: 0.96,
         autoAlpha: 1,
       },
@@ -179,10 +194,10 @@ export function playEnterLoggedInRefresh(onDone: () => void) {
         y: 0,
         rotate: 0,
         scale: 1,
-        duration: 0.55,
+        duration: 0.6,
         ease: "power1.out",
       },
-      `flyIn+=${i * 0.07}`
+      `flyIn+=${i * 0.08}`
     )
   })
 
@@ -220,24 +235,31 @@ export function playExit(heldId: string | null, onDone: () => void) {
       {
         x: to.x,
         y: to.y,
-        rotate: i % 2 ? 5 : -5,
-        duration: 0.45,
+        rotate: i % 2 ? 6 : -6,
+        autoAlpha: 1,
+        duration: 0.5,
         ease: "power1.in",
       },
       `flyOut+=${i * 0.05}`
     )
   })
-  tl.set(CONTENT_SELECTORS, { autoAlpha: 0, x: 0, y: 0 })
+  tl.set(CONTENT_SELECTORS, { autoAlpha: 0 })
 
-  tl.addLabel("loginIn", "flyOut+=0.35")
-    .set("#widget-login", { autoAlpha: 1, x: 0, y: -160, rotate: -4 })
+  tl.addLabel("loginIn", "flyOut+=0.4")
+    .set("#widget-login", {
+      autoAlpha: 1,
+      x: LOGIN_OUT.x,
+      y: LOGIN_OUT.y,
+      rotate: -6,
+      scale: 1,
+    })
     .to(
       "#widget-login",
       {
+        x: 0,
         y: 0,
         rotate: 0,
-        scale: 1,
-        duration: 0.55,
+        duration: 0.6,
         ease: "power1.out",
       },
       "loginIn"
@@ -268,9 +290,17 @@ export function playPickUp(
   })
   // #prop-pen is the motion node; slot translate lives on #prop-pen-slot.
   if (id === "compose") {
-    tl.to("#prop-pen", { y: 4, rotate: -4, duration: 0.21 }, 0)
+    tl.to(
+      "#prop-pen",
+      { y: 4, rotate: -4, duration: 0.21, overwrite: "auto" },
+      0
+    )
   } else {
-    tl.to("#prop-pen", { y: 0, rotate: 0, duration: 0.21 }, 0)
+    tl.to(
+      "#prop-pen",
+      { y: 0, rotate: 0, duration: 0.21, overwrite: "auto" },
+      0
+    )
   }
   return skipIfReduce(tl)
 }
@@ -279,7 +309,7 @@ export function playPutDown(id: ContentWidgetId) {
   const tl = gsap.timeline({ defaults: { ease: "power2.inOut" } })
   tl.add(setWidgetState(WIDGET_SCENE_IDS[id], "idle"))
   tl.to(CONTENT_SELECTORS, { opacity: 1, duration: 0.2 }, 0)
-  tl.to("#prop-pen", { y: 0, rotate: 0, duration: 0.21 }, 0)
+  tl.to("#prop-pen", { y: 0, rotate: 0, duration: 0.21, overwrite: "auto" }, 0)
   return skipIfReduce(tl)
 }
 

@@ -267,6 +267,7 @@ export function DeskApp({ user }: { user: DeskUser }) {
   }
 
   function enterPreview() {
+    sessionStorage.setItem(JUST_AUTHED_KEY, "1")
     setE2eUser({
       name: E2E_PREVIEW_USER.name,
       email: E2E_PREVIEW_USER.email,
@@ -359,11 +360,10 @@ export function DeskApp({ user }: { user: DeskUser }) {
       data-locked={desk.locked ? "true" : "false"}
     >
       <DeskScene onDeskClick={putDown}>
-        <LoginWidget>
-          <LandingFace
-            onLogin={login}
-            onPreviewEnter={allowE2ePreview() ? enterPreview : undefined}
-          />
+        <LoginWidget
+          onPreviewEnter={allowE2ePreview() ? enterPreview : undefined}
+        >
+          <LandingFace onLogin={login} />
         </LoginWidget>
         <CategoryWidget
           held={desk.held === "category"}
@@ -430,13 +430,7 @@ export function DeskApp({ user }: { user: DeskUser }) {
   )
 }
 
-function LandingFace({
-  onLogin,
-  onPreviewEnter,
-}: {
-  onLogin: () => void
-  onPreviewEnter?: () => void
-}) {
+function LandingFace({ onLogin }: { onLogin: () => void }) {
   return (
     <div className="login-actions">
       <button
@@ -450,16 +444,6 @@ function LandingFace({
         </span>
         GitHub 登录
       </button>
-      {onPreviewEnter ? (
-        <button
-          type="button"
-          id="btn-e2e-enter"
-          className="ink-btn"
-          onClick={onPreviewEnter}
-        >
-          进入桌面
-        </button>
-      ) : null}
     </div>
   )
 }

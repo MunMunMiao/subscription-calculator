@@ -7,7 +7,7 @@
 
 **舞台**：现有 DeskScene SVG（木桌 + 道具线稿），禁止换皮 / 新 scene-graph / 第二间房。  
 **绑定**：时间轴绑场景态 `login-only | enter | desk | held(widgetId) | exit`，不绑路由。  
-**禁止**：整页 opacity fade；第二张 HTML 纸；开本翻封面当主进场；切签换墨迹旧模型；同时两个 held；`widget-overview`。  
+**禁止**：整页 opacity fade；第二张 HTML 纸；开本翻封面当主进场；切签换墨迹旧模型；同时两个 held；`widget-overview`；`|Δ|≤160` 微移后隐身冒充飞入/飞出。  
 **手感**：场景轨 400–700ms · soft ease（`power2.inOut` / `power1.out`）· 吉卜力日常；描边轻、硬影无；接触影 `dy≤3` · `std≤1.6` · `opacity≤0.16`。
 
 **v1 作废**：`sealed | opening | closing | browse | compose` 五态本/页签机、`#book-cover` 翻合、tab-flip / ink-swap 主隐喻全部清掉。本文件即 MOTION 唯一源。
@@ -75,9 +75,19 @@ function setWidgetState(id, state) {
 
 ## 1. `enter`（登录成功 · 不可打断）
 
-顺序：登录 Widget **平移出视口**（禁 fade）→ 四内容 Widget 从视口外错落入槽 → `desk`。总长 ≈ 1.2–1.6s。输入锁定至 `onComplete`。
+顺序：登录 Widget **整件移出 viewBox**（禁 fade / 禁半途隐身）→ 四内容 Widget **从画外**错落入槽 → `desk`。总长 ≈ 1.3–1.8s。输入锁定至 `onComplete`。
+
+**舞台**：`#stage` viewBox `0 0 1280 800`。  
+**硬闸（产品拒签 P0/P1）**：
+
+- 「出画」= 整件包围盒完全离开 `0…1280 × 0…800` 之后，才允许 `.set(…, { autoAlpha: 0 })` park。
+- `|Δx| / |Δy| ≥ 420`（相对 slot 基线）。**禁止** 80–160 级微偏移 + `autoAlpha:0` 冒充飞入/飞出（那是 pop-in / 隐身）。
+- 过场全程 `autoAlpha: 1`；park 只在出画之后。
 
 ```js
+const STAGE = { w: 1280, h: 800 }
+const OFF = 480 // ≥420 硬闸；给件宽高留余量
+
 const CONTENT = [
   "#widget-category",
   "#widget-subs",
@@ -85,13 +95,16 @@ const CONTENT = [
   "#widget-compose",
 ]
 
-// offscreen starts — each slot has its own from vector (left/right/bottom)
+// true off-canvas starts (slot-local). Never reuse ≤160 pop deltas.
 const FROM = {
-  "#widget-category": { x: -120, y: -40 },
-  "#widget-subs": { x: 120, y: -30 },
-  "#widget-charges": { x: -80, y: 90 },
-  "#widget-compose": { x: 100, y: 80 },
+  "#widget-category": { x: -OFF, y: -80 }, // left
+  "#widget-subs": { x: OFF, y: -60 }, // right
+  "#widget-charges": { x: -OFF, y: 120 }, // left-bottom
+  "#widget-compose": { x: OFF, y: 140 }, // right-bottom
 }
+
+// login: fly UP until fully above y=0, then park
+const LOGIN_OUT = { x: 48, y: -720, rotate: -8 } // -720 clears ~center card on 800h
 
 function playEnterAfterLogin() {
   const tl = gsap.timeline({
@@ -103,24 +116,22 @@ function playEnterAfterLogin() {
     },
   })
 
-  // 1) login card translates OFF viewport (not fade / not book-cover)
+  // 1) login translates fully OFF top edge (visible the whole way)
   tl.addLabel("loginOut")
     .to(
       "#widget-login",
       {
-        y: -160,
-        x: 40,
-        rotate: -6,
-        autoAlpha: 1, // keep visible while moving; park offstage after
-        duration: 0.55,
+        ...LOGIN_OUT,
+        autoAlpha: 1,
+        duration: 0.65,
         ease: "power1.out",
       },
       "loginOut"
     )
-    .set("#widget-login", { autoAlpha: 0, x: 0, y: -200 }) // parked offstage
+    .set("#widget-login", { autoAlpha: 0, x: 0, y: LOGIN_OUT.y, rotate: 0 }) // park ONLY after off-canvas
 
-  // 2) four content widgets fly IN from offscreen into slots
-  tl.addLabel("flyIn", "loginOut+=0.25")
+  // 2) four content widgets fly IN from true offscreen into slots
+  tl.addLabel("flyIn", "loginOut+=0.28")
   CONTENT.forEach((sel, i) => {
     const from = FROM[sel]
     tl.fromTo(
@@ -128,7 +139,7 @@ function playEnterAfterLogin() {
       {
         x: from.x,
         y: from.y,
-        rotate: i % 2 ? 4 : -4,
+        rotate: i % 2 ? 5 : -5,
         scale: 0.96,
         autoAlpha: 1,
       },
@@ -137,10 +148,10 @@ function playEnterAfterLogin() {
         y: 0,
         rotate: 0,
         scale: 1,
-        duration: 0.55,
+        duration: 0.6,
         ease: "power1.out",
       },
-      `flyIn+=${i * 0.07}`
+      `flyIn+=${i * 0.08}`
     )
   })
 
@@ -148,13 +159,13 @@ function playEnterAfterLogin() {
 }
 ```
 
-**禁**：`#book-cover` 翻合当主进场；整页 `autoAlpha` fade；原地淡入落槽。
+**禁**：`#book-cover` 翻合当主进场；整页 `autoAlpha` fade；原地淡入落槽；`y:-160` / `|Δ|≤160` 后隐身。
 
 ---
 
 ## 2. `enter`（已登录刷新 · 不可打断）
 
-同四模块飞入；**舞台上不出现** `widget-login`。落定 → `desk` 全 idle = 总览。
+同四模块 **从画外**飞入（共用 `FROM`，`|Δ|≥420`）；**舞台上不出现** `widget-login`。落定 → `desk` 全 idle = 总览。
 
 ```js
 function playEnterLoggedInRefresh() {
@@ -162,7 +173,7 @@ function playEnterLoggedInRefresh() {
     defaults: { ease: "power2.inOut" },
     onStart: () => {
       lockInput(true)
-      gsap.set("#widget-login", { autoAlpha: 0, x: 0, y: -200 }) // never on stage
+      gsap.set("#widget-login", { autoAlpha: 0, x: 0, y: LOGIN_OUT.y }) // never on stage
     },
     onComplete: () => {
       lockInput(false)
@@ -178,7 +189,7 @@ function playEnterLoggedInRefresh() {
       {
         x: from.x,
         y: from.y,
-        rotate: i % 2 ? 4 : -4,
+        rotate: i % 2 ? 5 : -5,
         scale: 0.96,
         autoAlpha: 1,
       },
@@ -187,10 +198,10 @@ function playEnterLoggedInRefresh() {
         y: 0,
         rotate: 0,
         scale: 1,
-        duration: 0.55,
+        duration: 0.6,
         ease: "power1.out",
       },
-      `flyIn+=${i * 0.07}`
+      `flyIn+=${i * 0.08}`
     )
   })
 
@@ -204,7 +215,7 @@ Boot 分支：未登录 → `login-only`（只放 `widget-login`，四槽空）�
 
 ## 3. `exit`（登出 · 不可打断）
 
-若当前 `held`：先 put-down → 四内容飞出视口 → 登录卡从视口外飞回桌心 → `login-only`。总长 ≈ 1.2–1.6s。
+若当前 `held`：先 put-down → 四内容 **飞出画外**（镜像 `FROM`，`|Δ|≥420`，途中 `autoAlpha:1`）→ 登录卡从 **画外上方**飞回桌心 → `login-only`。总长 ≈ 1.3–1.8s。
 
 ```js
 function playExit(heldId /* string | null */) {
@@ -222,7 +233,7 @@ function playExit(heldId /* string | null */) {
     tl.add(setWidgetState(heldId, "idle"), 0)
   }
 
-  // 1) four content fly OUT (mirror of enter FROM vectors)
+  // 1) four content fly OUT to true off-canvas (same vectors as enter FROM)
   tl.addLabel("flyOut", heldId ? "+=0.05" : 0)
   CONTENT.forEach((sel, i) => {
     const to = FROM[sel]
@@ -231,25 +242,32 @@ function playExit(heldId /* string | null */) {
       {
         x: to.x,
         y: to.y,
-        rotate: i % 2 ? 5 : -5,
-        duration: 0.45,
+        rotate: i % 2 ? 6 : -6,
+        autoAlpha: 1, // stay visible until off-canvas
+        duration: 0.5,
         ease: "power1.in",
       },
       `flyOut+=${i * 0.05}`
     )
   })
-  tl.set(CONTENT, { autoAlpha: 0, x: 0, y: 0 }) // clear offstage
+  tl.set(CONTENT, { autoAlpha: 0 }) // park ONLY after off-canvas; leave x/y at FROM
 
-  // 2) login flies back onto desk
-  tl.addLabel("loginIn", "flyOut+=0.35")
-    .set("#widget-login", { autoAlpha: 1, x: 0, y: -160, rotate: -4 })
+  // 2) login flies IN from true above-canvas (not y:-160 pop)
+  tl.addLabel("loginIn", "flyOut+=0.4")
+    .set("#widget-login", {
+      autoAlpha: 1,
+      x: LOGIN_OUT.x,
+      y: LOGIN_OUT.y,
+      rotate: -6,
+      scale: 1,
+    })
     .to(
       "#widget-login",
       {
+        x: 0,
         y: 0,
         rotate: 0,
-        scale: 1,
-        duration: 0.55,
+        duration: 0.6,
         ease: "power1.out",
       },
       "loginIn"
@@ -259,15 +277,17 @@ function playExit(heldId /* string | null */) {
 }
 ```
 
-触发：`#btn-logout`（或等价登出控件）。禁止「只藏内容、登录瞬切出现」。
+触发：`#btn-logout`（或等价登出控件）。  
+**禁**：「只藏内容、登录瞬切出现」；飞出中途 `autoAlpha:0`；登录从 `y:-160` 冒出。
 
 ---
 
 ## 4. `held` / put-down（桌上拿放）
 
 - **拿起**：`desk` → 点某内容 Widget → `held(widgetId)`；抬起置前（四态 `held`）；其它件可轻让位 / 压暗，但仍贴槽。
-- **放下**：点空桌 / 显式放下 / 点另一 Widget → 当前件回槽 `idle` → `desk`；若点了另一件，再播其 `held`。
+- **放下**：点空桌 / 显式放下 / **再点当前 held 同件** / 点另一 Widget → 当前件回槽 `idle` → `desk`；若点了另一件，再播其 `held`。同件再点与点空桌等价。
 - **同时只一个 held**。登录件不在 desk 态上场，故无拿起轨。
+- **命中**：木纹 / 污渍 / 植物等装饰必须 `pointer-events: none`（或等价），空桌放下命中是工程硬闸，不改轨时长。
 
 ```js
 let heldId = null
@@ -302,6 +322,7 @@ function putDown() {
 }
 
 // click empty desk → putDown()
+// click same held widget again → putDown()  // toggle
 // click another widget → pickUp(otherId)  // handles put-down internally
 ```
 
@@ -380,7 +401,13 @@ function playEnterRespectingMotion(kind /* "login" | "refresh" */) {
 
 ## 8. 工程交接（@手帐工程师）
 
-**在新分支实现，不要在 PR #7 上硬拧。** #7 旧五态封本机继续不合。
+**在 #8 分支修 P0/P1 动效硬闸，不要新开无关分支。** #7 旧五态封本机继续不合。
+
+**动效硬闸验收（产品 P0-1 / P1-4）**：
+
+1. 登录出镜：末帧前 `#widget-login` 包围盒完全离开 viewBox；禁止 `y≈-160` + `autoAlpha:0`。
+2. 四件飞入 / 飞出：相对槽位 `|Δx|` 或 `|Δy|` ≥ 420（本文件 `OFF = 480`）；禁止 80–160 pop-in。
+3. 过场途中保持 `autoAlpha:1`；`.set(autoAlpha:0)` 只允许在出画之后。
 
 ```ts
 type Scene =
