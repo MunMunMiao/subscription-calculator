@@ -150,23 +150,54 @@
   display: block;
 }
 
-.letter-paper,
+.desk-widget,
 .desk-prop,
 .pencil,
-.plant-leaf,
-.sparkle {
+.plant-leaf {
   transform-box: fill-box;
   transform-origin: 50% 50%;
 }
 
-.paper-layer {
-  position: absolute;
-  inset: 0;
-  z-index: 2;
+.widget-face {
+  overflow: hidden;
+  opacity: 0;
+}
+
+.widget-face.is-open {
+  opacity: 1;
+  overflow: auto;
+}
+
+.widget-face-inner {
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
+  padding: 0.2rem 0.35rem;
+  color: #2a2118;
+  font-family: "Noto Serif SC", serif;
+  font-size: 0.72rem;
+}
+
+.login-actions {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: center;
-  pointer-events: none;
+  gap: 0.4rem;
+}
+
+.widget-face .github-login {
+  margin-top: 0;
+  padding: 0.28rem 0.8rem 0.28rem 0.45rem;
+  font-size: 0.95rem;
+}
+
+.widget-face .github-login-icon {
+  width: 1.35rem;
+  height: 1.35rem;
+}
+
+.paper-layer {
+  display: none;
 }
 
 .paper-slot {

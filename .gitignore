@@ -15,6 +15,10 @@ dist-ssr
 __unconfig*
 todos.json
 *.tsbuildinfo
+test-results
+playwright-report
+blob-report
+playwright/.cache
 
 # Keep example env files
 !.env.example

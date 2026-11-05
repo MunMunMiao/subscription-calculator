@@ -1,6 +1,6 @@
+import type { ReactNode } from "react"
+
 const INK = "#2a2118"
-const PAPER = "#f3ead3"
-const PAPER_BACK = "#e6d8b8"
 const WOOD = "#c4a06a"
 
 function rng(seed: number) {
@@ -71,7 +71,7 @@ function Heart({ fill = "#e27898" }: { fill?: string }) {
 
 function Pencil() {
   return (
-    <g className="desk-prop" transform="translate(168 118)">
+    <g id="prop-pen" className="desk-prop" transform="translate(168 118)">
       <g className="pencil" transform="rotate(-42)">
         <path
           d="M -10,78 L 0,108 L 10,78 Z"
@@ -173,7 +173,9 @@ function Flower({ x, y, fill }: { x: number; y: number; fill: string }) {
 function FloralRoll() {
   return (
     <g
+      id="prop-tape-floral"
       className="desk-prop floral-roll"
+      data-interactive="true"
       transform="translate(118 682) rotate(-12)"
     >
       <ellipse
@@ -276,7 +278,7 @@ function Clip({
 
 function Mug() {
   return (
-    <g className="desk-prop mug" transform="translate(1310 92)">
+    <g id="prop-cup" className="desk-prop mug" transform="translate(1310 92)">
       <ellipse cx="8" cy="118" rx="78" ry="14" fill="#8d6a3a" opacity="0.22" />
       <path
         d="M 78,28 C 118,32 124,92 86,108"
@@ -379,7 +381,11 @@ function Mug() {
 
 function Plant() {
   return (
-    <g className="desk-prop plant" transform="translate(1324 430)">
+    <g
+      id="prop-plant"
+      className="desk-prop plant"
+      transform="translate(1324 430)"
+    >
       <ellipse cx="4" cy="168" rx="70" ry="12" fill="#8d6a3a" opacity="0.2" />
       <path
         d="M -62,40 Q -70,120 -48,168 Q 4,186 56,168 Q 74,118 64,40 Q 4,22 -62,40 Z"
@@ -461,7 +467,9 @@ function BlueWashi() {
   ]
   return (
     <g
+      id="prop-tape-blue"
       className="desk-prop blue-washi"
+      data-interactive="true"
       transform="translate(1458 528) rotate(16)"
     >
       <path
@@ -481,7 +489,9 @@ function BlueWashi() {
 function GinghamWashi() {
   return (
     <g
+      id="prop-tape-gingham"
       className="desk-prop gingham-washi"
+      data-interactive="true"
       transform="translate(1418 792) rotate(12)"
     >
       <path
@@ -505,138 +515,104 @@ function GinghamWashi() {
   )
 }
 
-function LetterPaper() {
-  const x = 480
-  const y = 78
-  const w = 640
-  const h = 744
-  const lines = Array.from({ length: 22 }, (_, i) => {
-    const yy = y + 118 + i * 28
-    const wobble = Math.sin(i * 1.35) * 1.1
-    return (
-      <path
-        key={i}
-        className="paper-line"
-        d={`M ${x + 30} ${yy + wobble} Q ${x + w / 2} ${yy - 0.9} ${x + w - 32} ${yy - wobble * 0.4}`}
-        stroke="#d5c7ae"
-        strokeWidth="1.45"
-        fill="none"
-      />
-    )
-  })
-
-  return (
-    <g className="letter-paper">
-      <path
-        d={`M ${x - 10} ${y + 8} L ${x + w - 18} ${y + 14} L ${x + w - 14} ${y + h + 6} L ${x - 6} ${y + h + 2} Z`}
-        fill={PAPER_BACK}
-        stroke={INK}
-        strokeWidth="2.2"
-      />
-      <path
-        d={`M ${x + 8} ${y + 4} L ${x + w - 8} ${y + 10} L ${x + w - 4} ${y + h} L ${x + 4} ${y + h - 4} Z`}
-        fill="#eadcc0"
-        stroke={INK}
-        strokeWidth="2"
-      />
-      <path
-        className="paper-sheet"
-        d={`M ${x} ${y}
-           C ${x} ${y} ${x + w - 8} ${y - 6} ${x + w} ${y + 4}
-           C ${x + w + 6} ${y + 18} ${x + w + 4} ${y + h - 12} ${x + w - 4} ${y + h}
-           C ${x + w - 40} ${y + h + 6} ${x + 24} ${y + h + 4} ${x + 6} ${y + h - 2}
-           C ${x - 6} ${y + h - 18} ${x - 4} ${y + 16} ${x} ${y} Z`}
-        fill={PAPER}
-        stroke={INK}
-        strokeWidth="2.8"
-        strokeLinejoin="round"
-        filter="url(#paperShadow)"
-      />
-      <g fill="none" strokeLinecap="round">
-        {lines}
-      </g>
-    </g>
-  )
-}
-
-export function DeskScene() {
+export function DeskScene({
+  children,
+  onDeskClick,
+}: {
+  children?: ReactNode
+  onDeskClick?: () => void
+}) {
   return (
     <svg
+      id="stage"
       className="desk-svg"
       viewBox="0 0 1600 900"
       preserveAspectRatio="xMidYMid slice"
-      aria-hidden="true"
+      role="img"
+      aria-label="手帐桌面"
     >
       <defs>
-        <filter id="paperShadow" x="-6%" y="-4%" width="114%" height="116%">
+        <filter id="widgetShadow" x="-8%" y="-8%" width="116%" height="120%">
           <feDropShadow
-            dx="3"
-            dy="7"
-            stdDeviation="4.5"
+            dx="1"
+            dy="3"
+            stdDeviation="1.6"
             floodColor="#5c3d1c"
-            floodOpacity="0.28"
+            floodOpacity="0.16"
           />
         </filter>
       </defs>
-      <rect width="1600" height="900" fill={WOOD} />
-      {WOOD_MARKS.stains.map((stain, index) => (
-        <ellipse
-          key={`stain-${index}`}
-          cx={stain.cx}
-          cy={stain.cy}
-          rx={stain.rx}
-          ry={stain.ry}
-          transform={`rotate(${stain.rot} ${stain.cx} ${stain.cy})`}
-          fill="#8a6238"
-          opacity={stain.opacity}
-        />
-      ))}
-      <g fill="none" stroke="#7a4e28" strokeLinecap="round">
-        {WOOD_MARKS.grains.map((grain, index) => (
-          <path
-            key={`grain-${index}`}
-            d={grain.d}
-            opacity={grain.opacity}
-            strokeWidth={grain.width}
+      <g id="desk">
+        <rect width="1600" height="900" fill={WOOD} onPointerUp={onDeskClick} />
+        {WOOD_MARKS.stains.map((stain, index) => (
+          <ellipse
+            key={`stain-${index}`}
+            cx={stain.cx}
+            cy={stain.cy}
+            rx={stain.rx}
+            ry={stain.ry}
+            transform={`rotate(${stain.rot} ${stain.cx} ${stain.cy})`}
+            fill="#8a6238"
+            opacity={stain.opacity}
           />
         ))}
-      </g>
-      {WOOD_MARKS.knots.map((knot, index) => (
-        <g
-          key={`knot-${index}`}
-          transform={`rotate(${knot.rot} ${knot.cx} ${knot.cy})`}
-        >
-          <ellipse
-            cx={knot.cx}
-            cy={knot.cy}
-            rx={knot.rx}
-            ry={knot.ry}
-            fill="#8a5a30"
-            stroke="#5c3a1c"
-            strokeWidth="1.6"
-            opacity="0.85"
-          />
-          <ellipse
-            cx={knot.cx}
-            cy={knot.cy}
-            rx={knot.rx * 0.55}
-            ry={knot.ry * 0.5}
-            fill="none"
-            stroke="#5c3a1c"
-            strokeWidth="1.2"
-            opacity="0.7"
-          />
-          <ellipse
-            cx={knot.cx - 2}
-            cy={knot.cy}
-            rx={knot.rx * 0.22}
-            ry={knot.ry * 0.2}
-            fill="#4a2e16"
-            opacity="0.8"
-          />
+        <g fill="none" stroke="#7a4e28" strokeLinecap="round">
+          {WOOD_MARKS.grains.map((grain, index) => (
+            <path
+              key={`grain-${index}`}
+              d={grain.d}
+              opacity={grain.opacity}
+              strokeWidth={grain.width}
+            />
+          ))}
         </g>
-      ))}
-      <LetterPaper />
+        {WOOD_MARKS.knots.map((knot, index) => (
+          <g
+            key={`knot-${index}`}
+            transform={`rotate(${knot.rot} ${knot.cx} ${knot.cy})`}
+          >
+            <ellipse
+              cx={knot.cx}
+              cy={knot.cy}
+              rx={knot.rx}
+              ry={knot.ry}
+              fill="#8a5a30"
+              stroke="#5c3a1c"
+              strokeWidth="1.6"
+              opacity="0.85"
+            />
+            <ellipse
+              cx={knot.cx}
+              cy={knot.cy}
+              rx={knot.rx * 0.55}
+              ry={knot.ry * 0.5}
+              fill="none"
+              stroke="#5c3a1c"
+              strokeWidth="1.2"
+              opacity="0.7"
+            />
+            <ellipse
+              cx={knot.cx - 2}
+              cy={knot.cy}
+              rx={knot.rx * 0.22}
+              ry={knot.ry * 0.2}
+              fill="#4a2e16"
+              opacity="0.8"
+            />
+          </g>
+        ))}
+      </g>
+      <ellipse
+        id="light"
+        cx="800"
+        cy="80"
+        rx="420"
+        ry="70"
+        fill="#f4e4c2"
+        opacity="0.18"
+        pointerEvents="none"
+      />
+      <g id="widget-layer">{children}</g>
       <Pencil />
       <PolkaWashi />
       <FloralRoll />

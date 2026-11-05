@@ -2,6 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import {
+  useReducer,
   useRef,
   useState,
   type Dispatch,
@@ -11,6 +12,14 @@ import {
 import { toast } from "sonner"
 
 import { DeskScene } from "@/components/desk-scene"
+import {
+  CategoryWidget,
+  ChargesWidget,
+  ComposeWidget,
+  DeskInk,
+  LoginWidget,
+  SubsWidget,
+} from "@/components/desk-widgets"
 import {
   CATEGORIES,
   CURRENCIES,
@@ -29,8 +38,14 @@ import {
   type Status,
   type SubscriptionType,
 } from "@/lib/catalog"
-import { gsap, useGSAP } from "@/lib/gsap"
+import { useGSAP } from "@/lib/gsap"
 import { authClient } from "@/lib/auth-client"
+import {
+  E2E_PREVIEW_USER,
+  allowE2ePreview,
+  e2ePreviewItems,
+  isE2ePreviewUser,
+} from "@/lib/e2e-preview"
 import { centsToAmount, formatMoney } from "@/lib/money"
 import {
   categoryBreakdown,
@@ -41,6 +56,22 @@ import {
   usedCurrencies,
   type SpendItem,
 } from "@/lib/spend"
+import {
+  bootDesk,
+  reduceDesk,
+  type ContentWidgetId,
+} from "@/lib/widget-machine"
+import {
+  JUST_AUTHED_KEY,
+  bindWidgetStickers,
+  playAmbient,
+  playEnterRespectingMotion,
+  playExit,
+  playPickUp,
+  playPutDown,
+  poseLoginOnly,
+  poseRefreshStart,
+} from "@/lib/widget-motion"
 import { orpc } from "@/orpc/client"
 
 export type DeskUser = {
@@ -48,9 +79,6 @@ export type DeskUser = {
   email: string
   image?: string | null
 } | null
-
-type PaperMode =
-  "landing" | "summary" | "chart" | "list" | "upcoming" | "compose"
 
 type SubscriptionRecord = SpendItem & {
   notes?: string | null
@@ -68,14 +96,6 @@ type FormValues = {
   chargeDate: string
   status: Status
 }
-
-const TABS: Array<{ mode: Exclude<PaperMode, "landing">; label: string }> = [
-  { mode: "summary", label: "总览" },
-  { mode: "chart", label: "分类" },
-  { mode: "list", label: "订阅" },
-  { mode: "upcoming", label: "扣费" },
-  { mode: "compose", label: "记一笔" },
-]
 
 const EMPTY_FORM: FormValues = {
   name: "",
@@ -101,10 +121,6 @@ const PIE_COLORS = [
   "#5f7f3c",
   "#4a7ab8",
 ]
-
-function assertNever(value: never): never {
-  throw new Error(`Unhandled paper mode: ${String(value)}`)
-}
 
 function recordToForm(item: SubscriptionRecord): FormValues {
   return {
@@ -135,21 +151,31 @@ function GitHubMark() {
 export function DeskApp({ user }: { user: DeskUser }) {
   const rootRef = useRef<HTMLDivElement>(null)
   const queryClient = useQueryClient()
-  const [mode, setMode] = useState<PaperMode>(user ? "summary" : "landing")
+  const [e2eUser, setE2eUser] = useState<DeskUser>(null)
+  const activeUser = user ?? e2eUser
+  const [desk, dispatch] = useReducer(
+    reduceDesk,
+    Boolean(activeUser),
+    (hasUser) => bootDesk({ user: hasUser, fromLogin: false })
+  )
+  const heldRef = useRef<ContentWidgetId | null>(null)
   const [editing, setEditing] = useState<SubscriptionRecord | undefined>()
   const [form, setForm] = useState<FormValues>(EMPTY_FORM)
-  const [currency, setCurrency] = useState<Currency>("USD")
   const [now] = useState(() => new Date())
+  const preview = isE2ePreviewUser(activeUser)
+  const [localItems, setLocalItems] = useState<SubscriptionRecord[]>(() =>
+    preview ? (e2ePreviewItems(now) as SubscriptionRecord[]) : []
+  )
 
   const listQuery = useQuery({
     ...orpc.subscriptions.list.queryOptions(),
-    enabled: Boolean(user),
+    enabled: Boolean(activeUser) && !preview,
   })
-  const items = (listQuery.data ?? []) as SubscriptionRecord[]
+  const items = (
+    preview ? localItems : (listQuery.data ?? [])
+  ) as SubscriptionRecord[]
   const currencies = usedCurrencies(items)
-  const activeCurrency = currencies.includes(currency)
-    ? currency
-    : (currencies[0] ?? "USD")
+  const activeCurrency = currencies[0] ?? "USD"
   const totals = totalsByCurrency(items, now).find(
     (item) => item.currency === activeCurrency
   )
@@ -166,7 +192,7 @@ export function DeskApp({ user }: { user: DeskUser }) {
         toast.success("已记下")
         setEditing(undefined)
         setForm(EMPTY_FORM)
-        setMode("list")
+        dispatch({ type: "put-down" })
         await invalidate()
       },
       onError: (error) => toast.error(error.message),
@@ -179,7 +205,7 @@ export function DeskApp({ user }: { user: DeskUser }) {
         toast.success("已更新")
         setEditing(undefined)
         setForm(EMPTY_FORM)
-        setMode("list")
+        dispatch({ type: "put-down" })
         await invalidate()
       },
       onError: (error) => toast.error(error.message),
@@ -209,139 +235,104 @@ export function DeskApp({ user }: { user: DeskUser }) {
 
   useGSAP(
     () => {
-      const mm = gsap.matchMedia()
-      mm.add(
-        {
-          reduceMotion: "(prefers-reduced-motion: reduce)",
-        },
-        (context) => {
-          const reduce = Boolean(context.conditions?.reduceMotion)
-          const duration = reduce ? 0 : 0.7
-          gsap.set(".letter-paper, .paper-slot", {
-            rotation: -0.55,
-            transformOrigin: "50% 50%",
-          })
-          const tl = gsap.timeline({
-            defaults: { ease: "power2.out", duration },
-          })
-          tl.from(
-            ".desk-prop",
-            {
-              autoAlpha: 0,
-              scale: 0.86,
-              y: 18,
-              stagger: reduce ? 0 : 0.05,
-              transformOrigin: "50% 50%",
-            },
-            0
-          )
-          tl.from(
-            [".letter-paper", ".paper-slot"],
-            { y: -42, autoAlpha: 0, rotation: -6 },
-            0.12
-          )
-          if (!reduce) {
-            tl.from(
-              ".paper-line",
-              { drawSVG: 0, stagger: 0.018, duration: 0.55 },
-              0.18
-            )
-            tl.from(
-              ".sparkle",
-              { scale: 0, stagger: 0.07, ease: "back.out(2.2)" },
-              0.42
-            )
-            gsap.to(".plant-leaf", {
-              rotation: 2.6,
-              transformOrigin: "50% 90%",
-              yoyo: true,
-              repeat: -1,
-              duration: 2.6,
-              stagger: 0.18,
-              ease: "sine.inOut",
-            })
-            gsap.to(".sparkle", {
-              scale: 1.18,
-              autoAlpha: 0.72,
-              yoyo: true,
-              repeat: -1,
-              duration: 1.15,
-              stagger: 0.16,
-              ease: "sine.inOut",
-            })
-            gsap.to(".pencil", {
-              rotation: "+=1.6",
-              yoyo: true,
-              repeat: -1,
-              duration: 3.2,
-              ease: "sine.inOut",
-            })
+      playAmbient()
+      if (desk.phase === "login-only") poseLoginOnly()
+      else poseRefreshStart()
+      return bindWidgetStickers(
+        rootRef.current!,
+        () => rootRef.current?.dataset.locked === "true",
+        () => {
+          const held = rootRef.current?.dataset.held
+          if (
+            held === "category" ||
+            held === "subs" ||
+            held === "charges" ||
+            held === "compose"
+          ) {
+            return held
           }
+          return null
         }
       )
-      return () => mm.revert()
     },
-    { scope: rootRef }
+    { scope: rootRef, revertOnUpdate: false }
   )
 
   useGSAP(
     () => {
-      const mm = gsap.matchMedia()
-      mm.add(
-        { reduceMotion: "(prefers-reduced-motion: reduce)" },
-        (context) => {
-          const reduce = Boolean(context.conditions?.reduceMotion)
-          const face = ".paper-face"
-          const tl = gsap.timeline({
-            defaults: {
-              duration: reduce ? 0 : 0.48,
-              ease: "power2.inOut",
-            },
-          })
-          tl.fromTo(
-            face,
-            { autoAlpha: 0, y: reduce ? 0 : 22, rotation: reduce ? 0 : 1.4 },
-            { autoAlpha: 1, y: 0, rotation: 0 }
-          )
-        }
-      )
-      return () => mm.revert()
+      if (desk.phase !== "enter") return
+      const fromLogin =
+        desk.fromLogin || sessionStorage.getItem(JUST_AUTHED_KEY) === "1"
+      sessionStorage.removeItem(JUST_AUTHED_KEY)
+      playEnterRespectingMotion(fromLogin ? "login" : "refresh", () => {
+        dispatch({ type: "enter-done" })
+      })
     },
-    { scope: rootRef, dependencies: [mode], revertOnUpdate: true }
+    { scope: rootRef, dependencies: [desk.phase], revertOnUpdate: false }
+  )
+
+  useGSAP(
+    () => {
+      if (desk.phase !== "exit") return
+      playExit(heldRef.current ? `widget-${heldRef.current}` : null, () => {
+        void authClient.signOut().finally(() => {
+          window.location.assign("/")
+        })
+      })
+    },
+    { scope: rootRef, dependencies: [desk.phase], revertOnUpdate: false }
+  )
+
+  useGSAP(
+    () => {
+      if (desk.phase !== "desk" && desk.phase !== "held") return
+      const prev = heldRef.current
+      const next = desk.held
+      if (prev === next) return
+      if (next) playPickUp(next, prev)
+      else if (prev) playPutDown(prev)
+      heldRef.current = next
+    },
+    {
+      scope: rootRef,
+      dependencies: [desk.phase, desk.held],
+      revertOnUpdate: false,
+    }
   )
 
   function login() {
+    sessionStorage.setItem(JUST_AUTHED_KEY, "1")
     void authClient.signIn.social({
       provider: "github",
       callbackURL: "/",
     })
   }
 
-  async function logout() {
-    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches
-    const tl = gsap.timeline({
-      defaults: { duration: reduce ? 0 : 0.4, ease: "power2.in" },
-      onComplete: () => {
-        void authClient.signOut().then(() => {
-          window.location.assign("/")
-        })
-      },
+  function enterPreview() {
+    setE2eUser({
+      name: E2E_PREVIEW_USER.name,
+      email: E2E_PREVIEW_USER.email,
     })
-    tl.to(".paper-face", { autoAlpha: 0, y: 16 })
+    setLocalItems(e2ePreviewItems(now) as SubscriptionRecord[])
+    dispatch({ type: "login-success" })
   }
 
-  function go(next: PaperMode) {
-    if (next === "compose" && mode !== "compose") {
-      setEditing(undefined)
-      setForm(EMPTY_FORM)
-    }
-    setMode(next)
+  function logout() {
+    dispatch({ type: "logout" })
+  }
+
+  function pick(id: ContentWidgetId) {
+    dispatch({ type: "pick", id })
+  }
+
+  function putDown() {
+    dispatch({ type: "put-down" })
   }
 
   function openEdit(item: SubscriptionRecord) {
     setEditing(item)
     setForm(recordToForm(item))
-    setMode("compose")
+    pick("compose")
   }
 
   function submitForm(event: FormEvent) {
@@ -361,6 +352,31 @@ export function DeskApp({ user }: { user: DeskUser }) {
       chargeDate: form.chargeDate,
       status: form.status,
     }
+    if (preview) {
+      const record: SubscriptionRecord = {
+        id: editing?.id ?? `e2e-${Date.now()}`,
+        name: payload.name,
+        amountCents: Math.round(payload.amount * 100),
+        currency: payload.currency,
+        category: payload.category,
+        notes: payload.notes,
+        type: payload.type,
+        interval: payload.interval,
+        intervalDays: payload.intervalDays,
+        chargeDate: payload.chargeDate,
+        status: payload.status,
+      }
+      setLocalItems((current) =>
+        editing
+          ? current.map((item) => (item.id === editing.id ? record : item))
+          : [...current, record]
+      )
+      toast.success(editing ? "已更新" : "已记下")
+      setEditing(undefined)
+      setForm(EMPTY_FORM)
+      dispatch({ type: "put-down" })
+      return
+    }
     if (editing) {
       updateMutation.mutate({ ...payload, id: editing.id })
       return
@@ -368,53 +384,81 @@ export function DeskApp({ user }: { user: DeskUser }) {
     createMutation.mutate(payload)
   }
 
-  function renderFace() {
-    switch (mode) {
-      case "landing":
-        return <LandingFace onLogin={login} />
-      case "summary":
-        return (
-          <SummaryFace
-            loading={listQuery.isLoading}
-            items={items}
-            totals={totals}
-            currency={activeCurrency}
-            currencies={currencies}
-            onCurrency={setCurrency}
-            onCompose={() => go("compose")}
-            onSeed={() => seedMutation.mutate(undefined)}
-            seeding={seedMutation.isPending}
+  function seed() {
+    if (preview) {
+      setLocalItems(e2ePreviewItems(now) as SubscriptionRecord[])
+      toast.success("已载入示例")
+      return
+    }
+    seedMutation.mutate(undefined)
+  }
+
+  const onDesk = desk.phase === "desk" || desk.phase === "held"
+  const summary = items.length
+    ? `${formatMoney(totals?.monthlyRecurring ?? 0, activeCurrency)} / 月`
+    : "手帐"
+
+  return (
+    <div
+      ref={rootRef}
+      className="desk-root"
+      data-testid="desk-root"
+      data-phase={desk.phase}
+      data-held={desk.held ?? ""}
+      data-locked={desk.locked ? "true" : "false"}
+    >
+      <DeskScene onDeskClick={putDown}>
+        <LoginWidget>
+          <LandingFace
+            onLogin={login}
+            onPreviewEnter={allowE2ePreview() ? enterPreview : undefined}
           />
-        )
-      case "chart":
-        return (
+        </LoginWidget>
+        <CategoryWidget
+          held={desk.held === "category"}
+          onPick={() => pick("category")}
+        >
           <ChartFace
-            loading={listQuery.isLoading}
+            loading={listQuery.isLoading && !preview}
             slices={slices}
             forecast={forecast}
             currency={activeCurrency}
           />
-        )
-      case "list":
-        return (
+        </CategoryWidget>
+        <SubsWidget held={desk.held === "subs"} onPick={() => pick("subs")}>
           <ListFace
-            loading={listQuery.isLoading}
+            loading={listQuery.isLoading && !preview}
             items={items}
             onEdit={openEdit}
             onDelete={(item) => {
-              if (window.confirm(`删除「${item.name}」？`)) {
-                removeMutation.mutate({ id: item.id })
+              if (!window.confirm(`删除「${item.name}」？`)) return
+              if (preview) {
+                setLocalItems((current) =>
+                  current.filter((row) => row.id !== item.id)
+                )
+                toast.success("已删除")
+                return
               }
+              removeMutation.mutate({ id: item.id })
             }}
-            onCompose={() => go("compose")}
-            onSeed={() => seedMutation.mutate(undefined)}
+            onCompose={() => pick("compose")}
+            onSeed={seed}
             seeding={seedMutation.isPending}
           />
-        )
-      case "upcoming":
-        return <UpcomingFace loading={listQuery.isLoading} charges={charges} />
-      case "compose":
-        return (
+        </SubsWidget>
+        <ChargesWidget
+          held={desk.held === "charges"}
+          onPick={() => pick("charges")}
+        >
+          <UpcomingFace
+            loading={listQuery.isLoading && !preview}
+            charges={charges}
+          />
+        </ChargesWidget>
+        <ComposeWidget
+          held={desk.held === "compose"}
+          onPick={() => pick("compose")}
+        >
           <ComposeFace
             form={form}
             setForm={setForm}
@@ -424,83 +468,51 @@ export function DeskApp({ user }: { user: DeskUser }) {
             onCancel={() => {
               setEditing(undefined)
               setForm(EMPTY_FORM)
-              setMode("list")
+              dispatch({ type: "put-down" })
             }}
           />
-        )
-      default:
-        return assertNever(mode)
-    }
-  }
-
-  return (
-    <div ref={rootRef} className="desk-root">
-      <DeskScene />
-      <div className="paper-layer">
-        <div className="paper-slot">
-          {user ? (
-            <nav className="washi-tabs" aria-label="手帐分页">
-              {TABS.map((tab) => (
-                <button
-                  key={tab.mode}
-                  type="button"
-                  className={`washi-tab washi-tab-${tab.mode}${mode === tab.mode ? " is-active" : ""}`}
-                  onClick={() => go(tab.mode)}
-                >
-                  {tab.label}
-                </button>
-              ))}
-            </nav>
-          ) : null}
-          <div className="paper-face">{renderFace()}</div>
-          {user ? (
-            <footer className="paper-footer">
-              <span>{user.name}</span>
-              <button type="button" className="ink-text-btn" onClick={logout}>
-                退出
-              </button>
-            </footer>
-          ) : null}
-        </div>
-      </div>
+        </ComposeWidget>
+        <DeskInk
+          visible={onDesk}
+          summary={summary}
+          userName={activeUser?.name}
+          onLogout={logout}
+        />
+      </DeskScene>
     </div>
   )
 }
 
-function Star({ className }: { className: string }) {
+function LandingFace({
+  onLogin,
+  onPreviewEnter,
+}: {
+  onLogin: () => void
+  onPreviewEnter?: () => void
+}) {
   return (
-    <svg
-      className={`sparkle ${className}`}
-      viewBox="-10 -10 20 20"
-      aria-hidden="true"
-    >
-      <path
-        d="M 0 -9 L 1.6 -1.6 L 9 0 L 1.6 1.6 L 0 9 L -1.6 1.6 L -9 0 L -1.6 -1.6 Z"
-        fill="#e8c44a"
-        stroke="#c9a227"
-        strokeWidth="0.8"
-      />
-    </svg>
-  )
-}
-
-function LandingFace({ onLogin }: { onLogin: () => void }) {
-  return (
-    <div className="cover-face">
-      <div className="title-cluster">
-        <Star className="sparkle-pos sparkle-tl" />
-        <Star className="sparkle-pos sparkle-tr" />
-        <Star className="sparkle-pos sparkle-top" />
-        <h1 className="techo-title">手帐</h1>
-        <Star className="sparkle-pos sparkle-bl" />
-        <Star className="sparkle-pos sparkle-br" />
-      </div>
-      <button type="button" className="github-login" onClick={onLogin}>
+    <div className="login-actions">
+      <button
+        type="button"
+        id="btn-login"
+        className="github-login"
+        onClick={onLogin}
+      >
         <span className="github-login-icon">
           <GitHubMark />
         </span>
         GitHub 登录
       </button>
+      {onPreviewEnter ? (
+        <button
+          type="button"
+          id="btn-e2e-enter"
+          className="ink-btn"
+          onClick={onPreviewEnter}
+        >
+          进入桌面
+        </button>
+      ) : null}
     </div>
   )
 }
@@ -530,78 +542,6 @@ function EmptyInk({
           {seeding ? "载入中…" : "载入示例"}
         </button>
       </div>
-    </div>
-  )
-}
-
-function SummaryFace({
-  loading,
-  items,
-  totals,
-  currency,
-  currencies,
-  onCurrency,
-  onCompose,
-  onSeed,
-  seeding,
-}: {
-  loading: boolean
-  items: SubscriptionRecord[]
-  totals:
-    | {
-        monthlyRecurring: number
-        yearlyRecurring: number
-        oneTimeThisMonth: number
-        oneTimeThisYear: number
-      }
-    | undefined
-  currency: Currency
-  currencies: Currency[]
-  onCurrency: (value: Currency) => void
-  onCompose: () => void
-  onSeed: () => void
-  seeding: boolean
-}) {
-  if (loading) return <p className="ink-muted">读取中…</p>
-  if (items.length === 0) {
-    return <EmptyInk onCompose={onCompose} onSeed={onSeed} seeding={seeding} />
-  }
-  return (
-    <div className="summary-face">
-      {currencies.length > 1 ? (
-        <div className="ink-row">
-          {currencies.map((item) => (
-            <button
-              key={item}
-              type="button"
-              className={`ink-text-btn${item === currency ? " is-active" : ""}`}
-              onClick={() => onCurrency(item)}
-            >
-              {item}
-            </button>
-          ))}
-        </div>
-      ) : (
-        <p className="ink-kicker">{currency}</p>
-      )}
-      <dl className="stat-grid">
-        <div>
-          <dt>每月经常</dt>
-          <dd>{formatMoney(totals?.monthlyRecurring ?? 0, currency)}</dd>
-        </div>
-        <div>
-          <dt>每年经常</dt>
-          <dd>{formatMoney(totals?.yearlyRecurring ?? 0, currency)}</dd>
-        </div>
-        <div>
-          <dt>本月一次</dt>
-          <dd>{formatMoney(totals?.oneTimeThisMonth ?? 0, currency)}</dd>
-        </div>
-        <div>
-          <dt>本年一次</dt>
-          <dd>{formatMoney(totals?.oneTimeThisYear ?? 0, currency)}</dd>
-        </div>
-      </dl>
     </div>
   )
 }
