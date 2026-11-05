@@ -80,6 +80,20 @@ function el(id: string) {
   return document.querySelector(id)
 }
 
+function poseLandingChrome(visible: boolean) {
+  const cover = el("#book-cover")
+  if (cover) {
+    cover.setAttribute("aria-hidden", visible ? "false" : "true")
+    gsap.set(cover, { pointerEvents: visible ? "auto" : "none" })
+  }
+  const chrome = gsap.utils.toArray<Element>("#btn-login, #brand-mark")
+  if (!chrome.length) return
+  gsap.set(chrome, {
+    autoAlpha: visible ? 1 : 0,
+    pointerEvents: visible ? "auto" : "none",
+  })
+}
+
 function motionTarget(id: string) {
   const node = el(id)
   return node ? motionOf(node) : id
@@ -192,27 +206,25 @@ export function applyScenePose(scene: SceneName) {
   const cover = el("#book-cover")
   const page = el("#page")
   const tabs = gsap.utils.toArray<Element>(TAB_IDS.join(","))
-  const login = el("#btn-login")
-  const brand = el("#brand-mark")
   if (scene === "opening" || scene === "closing") return
   if (scene === "sealed") {
     if (cover) gsap.set(cover, { autoAlpha: 1, rotationY: 0 })
     if (page) gsap.set(page, { autoAlpha: 0 })
     if (tabs.length) gsap.set(tabs, { autoAlpha: 0, y: 0, rotation: 0 })
-    if (login) gsap.set(login, { autoAlpha: 1 })
-    if (brand) gsap.set(brand, { autoAlpha: 1 })
+    poseLandingChrome(true)
     return
   }
   if (cover) gsap.set(cover, { autoAlpha: 0, rotationY: -105 })
   if (page) gsap.set(page, { autoAlpha: 1 })
   if (tabs.length) gsap.set(tabs, { autoAlpha: 1 })
+  poseLandingChrome(false)
 }
 
 export function playOpening(onDone: () => void) {
   gsap.set("#book-cover", { autoAlpha: 1, rotationY: 0 })
   gsap.set("#page", { autoAlpha: 0 })
   gsap.set(TAB_IDS, { autoAlpha: 0, y: -24 })
-  gsap.set(["#btn-login", "#brand-mark"], { autoAlpha: 1 })
+  poseLandingChrome(true)
 
   const tl = gsap.timeline({
     defaults: { ease: "power2.inOut" },
@@ -241,6 +253,7 @@ export function playOpening(onDone: () => void) {
       "flip"
     )
     .set("#book-cover", { autoAlpha: 0 })
+    .add(() => poseLandingChrome(false))
     .set("#page", { autoAlpha: 1 }, "flip+=0.35")
     .addLabel("tabs", "flip+=0.45")
     .fromTo(
@@ -294,7 +307,14 @@ export function playClosing(onDone: () => void) {
     tl.to(composeBits, { autoAlpha: 0, duration: 0.25 }, "tabsIn")
   }
   tl.addLabel("close", "tabsIn+=0.25")
-    .set("#book-cover", { autoAlpha: 1, rotationY: -105 })
+    .set("#book-cover", {
+      autoAlpha: 1,
+      rotationY: -105,
+      pointerEvents: "auto",
+    })
+    .add(() => {
+      el("#book-cover")?.setAttribute("aria-hidden", "false")
+    }, "close")
     .to(
       "#book-cover",
       {
@@ -316,7 +336,11 @@ export function playClosing(onDone: () => void) {
       { y: 0, rotation: 0, duration: 0.45, stagger: 0.03 },
       "tape+=0.05"
     )
-    .to(["#btn-login", "#brand-mark"], { autoAlpha: 1, duration: 0.35 }, "tape")
+    .to(
+      ["#btn-login", "#brand-mark"],
+      { autoAlpha: 1, pointerEvents: "auto", duration: 0.35 },
+      "tape"
+    )
 
   return skipIfReduce(tl)
 }

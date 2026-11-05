@@ -501,6 +501,8 @@ export function DeskApp({ user }: { user: DeskUser }) {
   }
 
   const showChrome = Boolean(user) && scene !== "sealed"
+  const showLanding =
+    scene === "sealed" || scene === "opening" || scene === "closing"
 
   return (
     <div
@@ -511,7 +513,7 @@ export function DeskApp({ user }: { user: DeskUser }) {
       data-tab={tab}
       data-locked={locked ? "true" : "false"}
     >
-      <DeskScene cover={<SceneLanding onLogin={login} />}>
+      <DeskScene cover={showLanding ? <SceneLanding onLogin={login} /> : null}>
         {showChrome || scene === "opening" || scene === "closing" ? (
           <SceneTabs
             scene={scene}

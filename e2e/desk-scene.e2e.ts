@@ -21,6 +21,22 @@ test.describe("DeskScene smoke", () => {
 
     await expect(root).toHaveAttribute("data-scene", "browse")
     await expect(root).toHaveAttribute("data-tab", "overview")
+    await expect(page.locator("#btn-login")).toBeHidden()
+    await expect(page.locator("#brand-mark")).toBeHidden()
+    const coverCopy = await page
+      .locator("#book-cover")
+      .evaluate((node) => node.textContent ?? "")
+    expect(coverCopy).not.toMatch(/手帐|GitHub 登录/)
+    await expect(page.locator("#book-cover")).toHaveAttribute(
+      "aria-hidden",
+      "true"
+    )
+    await expect(page.locator("#book-cover")).toHaveCSS(
+      "pointer-events",
+      "none"
+    )
+    await expect(page.locator("#tab-overview")).toBeVisible()
+    await expect(page.locator("#btn-write")).toBeVisible()
     await expect(page.locator("#ink-empty")).toContainText("还没有记录")
     await expect(page).toHaveURL(/e2e=browse/)
 
