@@ -87,7 +87,7 @@ bun run dev
 
 Open `http://localhost:3000`.
 
-1. Unauthed landing is `login-only`: a **bare wooden desk** plus a corner **login-control** (手帐 + GitHub). No desk login card, no cup/pen/plant/tape, no content widgets, and no overview widget.
+1. Unauthed landing is `login-only`: a **bare wooden desk** plus a bottom-right **GitHub 登录** badge. No desk login card, no cup/pen/plant/tape, no content widgets, and no overview widget.
 2. After GitHub OAuth (or Preview `/?e2e=browse`), MOTION `enter` flies the four content widgets in from off-screen. Idle desk with nothing held **is** 总览.
 3. Click a widget to pick it up (`held`); click the wood to put it down. Logout plays `exit`. `/app`, `/login`, and `/subscriptions` redirect to `/`.
 

@@ -24,12 +24,7 @@ import {
 import { EMPTY_INK, formatMonthlyBanner } from "@/lib/desk-ink"
 import { useGSAP } from "@/lib/gsap"
 import { authClient } from "@/lib/auth-client"
-import {
-  E2E_PREVIEW_USER,
-  allowE2ePreview,
-  e2ePreviewItems,
-  isE2ePreviewUser,
-} from "@/lib/e2e-preview"
+import { e2ePreviewItems, isE2ePreviewUser } from "@/lib/e2e-preview"
 import { centsToAmount } from "@/lib/money"
 import {
   toISODate,
@@ -121,8 +116,7 @@ function GitHubMark() {
 export function DeskApp({ user }: { user: DeskUser }) {
   const rootRef = useRef<HTMLDivElement>(null)
   const queryClient = useQueryClient()
-  const [e2eUser, setE2eUser] = useState<DeskUser>(null)
-  const activeUser = user ?? e2eUser
+  const activeUser = user
   const [desk, dispatch] = useReducer(
     reduceDesk,
     Boolean(activeUser),
@@ -263,16 +257,6 @@ export function DeskApp({ user }: { user: DeskUser }) {
       provider: "github",
       callbackURL: "/",
     })
-  }
-
-  function enterPreview() {
-    sessionStorage.setItem(JUST_AUTHED_KEY, "1")
-    setE2eUser({
-      name: E2E_PREVIEW_USER.name,
-      email: E2E_PREVIEW_USER.email,
-    })
-    setLocalItems(e2ePreviewItems(now) as SubscriptionRecord[])
-    dispatch({ type: "login-success" })
   }
 
   function logout() {
@@ -420,47 +404,23 @@ export function DeskApp({ user }: { user: DeskUser }) {
           onLogout={logout}
         />
       </DeskScene>
-      <LoginControl
-        onLogin={login}
-        onPreviewEnter={allowE2ePreview() ? enterPreview : undefined}
-      />
+      <LoginControl onLogin={login} />
     </div>
   )
 }
 
-function LoginControl({
-  onLogin,
-  onPreviewEnter,
-}: {
-  onLogin: () => void
-  onPreviewEnter?: () => void
-}) {
+function LoginControl({ onLogin }: { onLogin: () => void }) {
   return (
-    <div id="login-control" className="login-control">
-      <p id="brand-mark" className="login-badge">
-        手帐
-      </p>
-      <button
-        type="button"
-        id="btn-login"
-        className="github-login"
-        onClick={onLogin}
-      >
-        <span className="github-login-icon">
-          <GitHubMark />
-        </span>
-        GitHub 登录
-      </button>
-      {onPreviewEnter ? (
-        <button
-          type="button"
-          id="btn-e2e-enter"
-          className="ink-btn"
-          onClick={onPreviewEnter}
-        >
-          进入桌面
-        </button>
-      ) : null}
-    </div>
+    <button
+      type="button"
+      id="login-control"
+      className="login-control github-login"
+      onClick={onLogin}
+    >
+      <span className="github-login-icon">
+        <GitHubMark />
+      </span>
+      GitHub 登录
+    </button>
   )
 }

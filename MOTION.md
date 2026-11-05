@@ -7,7 +7,7 @@
 
 **舞台**：现有 DeskScene SVG（木桌 + 道具线稿），禁止换皮 / 新 scene-graph / 第二间房。  
 **绑定**：时间轴绑场景态 `login-only | enter | desk | held(widgetId) | exit`，不绑路由。  
-**login-only**：光木桌。零桌上物件（无登录卡 / 无杯笔植物胶带 / 无内容 Widget）。登录是角标 chrome `#login-control`，不是桌上物件。`widget-login` 作废。  
+**login-only**：光木桌。零桌上物件（无登录卡 / 无杯笔植物胶带 / 无内容 Widget）。登录是右下角标 `#login-control`「GitHub 登录」，不是桌上物件。`widget-login` 作废。  
 **禁止**：整页 opacity fade；第二张 HTML 纸；开本翻封面当主进场；切签换墨迹旧模型；同时两个 held；`widget-overview`；`|Δ|≤160` 微移后隐身冒充飞入/飞出。  
 **手感**：场景轨 400–700ms · soft ease（`power2.inOut` / `power1.out`）· 吉卜力日常；描边轻、硬影无；接触影 `dy≤3` · `std≤1.6` · `opacity≤0.16`。
 
@@ -15,13 +15,13 @@
 
 内容 Widget（SCENE ids）：
 
-| id                | 形态                  | 在场                                        |
-| ----------------- | --------------------- | ------------------------------------------- |
-| `login-control`   | 角标 GitHub chrome    | 仅 `login-only`；enter 移出（不是桌上物件） |
-| `widget-category` | 色块贴板              | enter 后 · desk/held                        |
-| `widget-subs`     | 索引卡叠              | enter 后 · desk/held                        |
-| `widget-charges`  | 日程条 / 票根         | enter 后 · desk/held                        |
-| `widget-compose`  | 便签 + 笔（唯一纸感） | enter 后 · desk/held                        |
+| id                | 形态                    | 在场                                                       |
+| ----------------- | ----------------------- | ---------------------------------------------------------- |
+| `login-control`   | 右下角标「GitHub 登录」 | 仅 `login-only`；click → OAuth；enter 移出（不是桌上物件） |
+| `widget-category` | 色块贴板                | enter 后 · desk/held                                       |
+| `widget-subs`     | 索引卡叠                | enter 后 · desk/held                                       |
+| `widget-charges`  | 日程条 / 票根           | enter 后 · desk/held                                       |
+| `widget-compose`  | 便签 + 笔（唯一纸感）   | enter 后 · desk/held                                       |
 
 **无 `widget-overview`**：`desk` 全 idle = 总览。
 
