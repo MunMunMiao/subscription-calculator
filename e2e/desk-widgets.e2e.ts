@@ -61,4 +61,75 @@ test.describe("Widget desk smoke", () => {
       timeout: 8_000,
     })
   })
+
+  test("cup paints behind 订阅 and does not steal hits", async ({ page }) => {
+    await page.goto("/?e2e=browse")
+    const root = desk(page)
+    await expect(root).toHaveAttribute("data-phase", "desk", { timeout: 8_000 })
+
+    const cupBehindWidgets = await page.evaluate(() => {
+      const cup = document.getElementById("prop-cup")
+      const layer = document.getElementById("widget-layer")
+      if (!cup || !layer) return false
+      return Boolean(
+        cup.compareDocumentPosition(layer) & Node.DOCUMENT_POSITION_FOLLOWING
+      )
+    })
+    expect(cupBehindWidgets).toBe(true)
+
+    const subs = page.locator("#widget-subs")
+    const box = await subs.boundingBox()
+    expect(box).toBeTruthy()
+    await page.mouse.click(box!.x + box!.width * 0.45, box!.y + 16)
+    await expect(root).toHaveAttribute("data-held", "subs")
+  })
+
+  test("compose pick-up / put-down leaves the pen in its slot", async ({
+    page,
+  }) => {
+    await page.goto("/?e2e=browse")
+    const root = desk(page)
+    await expect(root).toHaveAttribute("data-phase", "desk", { timeout: 8_000 })
+
+    const slot = page.locator("#prop-pen-slot")
+    await expect(slot).toHaveAttribute(
+      "transform",
+      /translate\(\s*168\s+118\s*\)/
+    )
+
+    const before = await page.locator("#prop-pen").boundingBox()
+    expect(before).toBeTruthy()
+
+    const hit = page.locator("#desk-hit")
+    const deskBox = await hit.boundingBox()
+    expect(deskBox).toBeTruthy()
+
+    for (let i = 0; i < 2; i++) {
+      await page.locator("#widget-compose").click()
+      await expect(root).toHaveAttribute("data-held", "compose")
+      await page.mouse.click(
+        deskBox!.x + deskBox!.width * 0.5,
+        deskBox!.y + deskBox!.height * 0.42
+      )
+      await expect(root).toHaveAttribute("data-phase", "desk")
+      await expect(root).toHaveAttribute("data-held", "")
+    }
+
+    await expect(slot).toHaveAttribute(
+      "transform",
+      /translate\(\s*168\s+118\s*\)/
+    )
+    await expect
+      .poll(async () => {
+        const after = await page.locator("#prop-pen").boundingBox()
+        if (!after || !before) return false
+        return (
+          Math.abs(after.x - before.x) < 24 &&
+          Math.abs(after.y - before.y) < 24 &&
+          after.x > 0 &&
+          after.y > 0
+        )
+      })
+      .toBe(true)
+  })
 })

@@ -266,6 +266,7 @@ export function playPickUp(
       tl.to(other, { opacity: 0.72, duration: 0.2 }, "<")
     }
   })
+  // #prop-pen is the motion node; slot translate lives on #prop-pen-slot.
   if (id === "compose") {
     tl.to("#prop-pen", { y: 4, rotate: -4, duration: 0.21 }, 0)
   } else {
@@ -284,6 +285,7 @@ export function playPutDown(id: ContentWidgetId) {
 
 export function playAmbient() {
   if (reduceMotion()) return
+  // Motion nodes only — slot translates stay on #prop-*-slot parents.
   gsap.to("#prop-cup", {
     y: "-=2",
     opacity: 0.92,

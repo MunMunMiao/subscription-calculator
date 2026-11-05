@@ -161,6 +161,8 @@
 #desk-art,
 #desk-art *,
 #light,
+#prop-layer,
+#prop-layer *,
 .desk-prop {
   pointer-events: none;
 }
