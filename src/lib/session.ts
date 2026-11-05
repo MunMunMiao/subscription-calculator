@@ -12,12 +12,16 @@ function isHandFeelPreview() {
   }
 }
 
-export async function readSession() {
-  if (isHandFeelPreview()) return null
-  const auth = createAuth()
-  return auth.api.getSession({
-    headers: getRequestHeaders(),
-  })
-}
+export const getSession = createServerFn({ method: "GET" }).handler(
+  async () => {
+    if (isHandFeelPreview()) return null
+    const auth = createAuth()
+    return auth.api.getSession({
+      headers: getRequestHeaders(),
+    })
+  }
+)
 
-export const getSession = createServerFn({ method: "GET" }).handler(readSession)
+export async function readSession() {
+  return getSession()
+}

@@ -7,7 +7,8 @@ import { createDb } from "@/db"
 import { createAuth } from "@/lib/auth"
 import { readSession } from "@/lib/session"
 import { createORPCContext } from "@/orpc/context"
-import { client, orpc, serverRpcHeaders, serverRpcUrl } from "@/orpc/client"
+import { client, orpc } from "@/orpc/client"
+import { isomorphicServerCall } from "../test/tanstack-start"
 import { intervalFields, router } from "@/orpc/router"
 import { setWorkerEnv, setWorkerEnvThrows } from "../test/cloudflare-workers"
 
@@ -160,8 +161,8 @@ describe("worker modules", () => {
   test("orpc client is constructed", () => {
     expect(client).toBeTruthy()
     expect(orpc.subscriptions).toBeTruthy()
-    expect(serverRpcUrl().pathname).toBe("/api/rpc")
-    expect(serverRpcHeaders().get("cookie")).toContain("session=1")
+    expect(isomorphicServerCall.url?.pathname).toBe("/api/rpc")
+    expect(isomorphicServerCall.headers?.get("cookie")).toContain("session=1")
   })
 })
 

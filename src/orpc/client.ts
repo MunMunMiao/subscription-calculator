@@ -7,14 +7,6 @@ import { getRequest, getRequestHeaders } from "@tanstack/react-start/server"
 
 import type { AppRouter } from "./router"
 
-export function serverRpcUrl() {
-  return new URL("/api/rpc", getRequest().url)
-}
-
-export function serverRpcHeaders() {
-  return getRequestHeaders()
-}
-
 const getLink = createIsomorphicFn()
   .client(
     () =>
@@ -25,8 +17,8 @@ const getLink = createIsomorphicFn()
   .server(
     () =>
       new RPCLink({
-        url: serverRpcUrl,
-        headers: serverRpcHeaders,
+        url: () => new URL("/api/rpc", getRequest().url),
+        headers: () => getRequestHeaders(),
       })
   )
 
