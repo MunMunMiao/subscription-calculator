@@ -93,6 +93,17 @@ test.describe("Widget desk smoke", () => {
 
     await page.locator("#widget-subs").click()
     await expect(root).toHaveAttribute("data-held", "subs")
+    await expect(page.locator("#widget-subs foreignObject")).toHaveCount(0)
+    await page.mouse.click(
+      box!.x + box!.width * 0.5,
+      box!.y + box!.height * 0.42
+    )
+    await expect(root).toHaveAttribute("data-phase", "desk")
+    await expect(root).toHaveAttribute("data-held", "")
+
+    await page.locator("#widget-charges").click()
+    await expect(root).toHaveAttribute("data-held", "charges")
+    await expect(page.locator("#widget-charges foreignObject")).toHaveCount(0)
     await page.mouse.click(
       box!.x + box!.width * 0.5,
       box!.y + box!.height * 0.42

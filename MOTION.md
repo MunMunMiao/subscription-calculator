@@ -326,7 +326,7 @@ function putDown() {
 // click another widget → pickUp(otherId)  // handles put-down internally
 ```
 
-`widget-compose` held 时：笔压下、表单 foreignObject 长在本件内；保存墨迹长在本件（禁整页 fade / 第二张纸）。其余 held：色块可微弹、索引卡可翻、票根可滑——物件内反馈，不换皮。
+`widget-compose` held 时：笔压下；本件内只有 SVG 横线 + 短填墨迹（禁 foreignObject / HTML 纸 / 系统滚动条）。保存墨迹长在本件。其余 held：色块可微弹、索引卡可翻、票根可滑——物件内反馈，不换皮。
 
 ---
 
