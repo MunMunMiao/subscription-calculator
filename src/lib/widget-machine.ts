@@ -1,7 +1,7 @@
 export type DeskPhase = "login-only" | "enter" | "desk" | "held" | "exit"
 
 export type ContentWidgetId = "category" | "subs" | "charges" | "compose"
-export type AuthWidgetId = "login"
+export type AuthWidgetId = "github"
 export type WidgetId = ContentWidgetId | AuthWidgetId
 
 export const CONTENT_WIDGET_IDS = [
@@ -11,8 +11,8 @@ export const CONTENT_WIDGET_IDS = [
   "compose",
 ] as const
 
-/** Auth family on login-only. Add ids here; do not one-off a chrome badge. */
-export const AUTH_WIDGET_IDS = ["login"] as const
+/** One Auth Widget per source on the desk. Never bucket into 「更多登录」. */
+export const AUTH_WIDGET_IDS = ["github"] as const
 
 export const WIDGET_FOUR_STATES = ["idle", "hover", "act", "held"] as const
 
@@ -23,7 +23,7 @@ export const WIDGET_SCENE_IDS = {
   subs: "widget-subs",
   charges: "widget-charges",
   compose: "widget-compose",
-  login: "widget-login",
+  github: "widget-auth-github",
 } as const
 
 export type SceneWidgetId =

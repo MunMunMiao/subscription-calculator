@@ -42,15 +42,17 @@ describe("content widgets", () => {
   })
 
   test("scene ids are four content shells plus the auth family", () => {
-    expect(CONTENT_WIDGET_IDS).not.toContain("login")
-    expect(AUTH_WIDGET_IDS).toEqual(["login"])
+    expect(CONTENT_WIDGET_IDS).not.toContain("github")
+    expect(AUTH_WIDGET_IDS).toEqual(["github"])
+    expect(AUTH_WIDGET_IDS).not.toContain("more")
     expect(WIDGET_SCENE_IDS).toEqual({
       category: "widget-category",
       subs: "widget-subs",
       charges: "widget-charges",
       compose: "widget-compose",
-      login: "widget-login",
+      github: "widget-auth-github",
     })
+    expect(WIDGET_SCENE_IDS).not.toHaveProperty("more")
   })
 
   test("four-state recipe is idle | hover | act | held", () => {

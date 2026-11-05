@@ -26,14 +26,14 @@ export const OFF = 480
 
 /** Auth family slots on the fixed 1280×800 camera. */
 export const AUTH_SLOTS = {
-  login: { x: 1116, y: 752 },
+  github: { x: 1116, y: 752 },
 } as const satisfies Record<AuthWidgetId, { x: number; y: number }>
 
-export const AUTH_LOGIN_FACE = { w: 148, h: 36 } as const
+export const AUTH_GITHUB_FACE = { w: 148, h: 36 } as const
 
 /** Per-auth-widget off-canvas. Must clear the 800h camera. */
 export const AUTH_OUT = {
-  login: { x: 48, y: -840, rotate: -8 },
+  github: { x: 48, y: -840, rotate: -8 },
 } as const satisfies Record<
   AuthWidgetId,
   { x: number; y: number; rotate: number }

@@ -39,9 +39,12 @@ test.describe("Widget desk smoke", () => {
     await assertFixedCamera(page)
     await expect(page.locator("#chrome-layer")).toHaveCount(0)
     await expect(page.locator("#login-control")).toHaveCount(0)
-    await expect(page.locator("#stage #widget-login")).toBeVisible()
-    await expect(page.locator("#widget-login")).toContainText("GitHub 登录")
-    const badge = await page.locator("#widget-login").boundingBox()
+    await expect(page.locator("#stage #widget-auth-github")).toBeVisible()
+    await expect(page.locator("#widget-auth-github")).toContainText(
+      "GitHub 登录"
+    )
+    await expect(page.locator("#widget-login")).toHaveCount(0)
+    const badge = await page.locator("#widget-auth-github").boundingBox()
     const stage = await page.locator("#stage").boundingBox()
     expect(badge).toBeTruthy()
     expect(stage).toBeTruthy()
@@ -75,7 +78,8 @@ test.describe("Widget desk smoke", () => {
     if (maxAbs > 0) expect(maxAbs).toBeGreaterThan(160)
     await expect(root).toHaveAttribute("data-held", "")
     await expect(page.locator("#widget-overview")).toHaveCount(0)
-    await expect(page.locator("#widget-login")).toBeHidden()
+    await expect(page.locator("#widget-auth-github")).toBeHidden()
+    await expect(page.locator("#widget-login")).toHaveCount(0)
     await expect(page.locator("#login-control")).toHaveCount(0)
     await expect(page.locator("#widget-category")).toBeVisible()
     await expect(page.locator("#widget-subs")).toBeVisible()
@@ -137,13 +141,13 @@ test.describe("Widget desk smoke", () => {
     await expect(root).toHaveAttribute("data-phase", /exit|login-only/)
     let minLoginY = 0
     for (let i = 0; i < 24; i++) {
-      const login = await gsapXY(page, "#widget-login")
+      const login = await gsapXY(page, "#widget-auth-github")
       minLoginY = Math.min(minLoginY, login.y)
       if ((await root.getAttribute("data-phase")) === "login-only") break
       await page.waitForTimeout(50)
     }
     expect(minLoginY).toBeLessThanOrEqual(-400)
-    await expect(page.locator("#widget-login")).toBeVisible({
+    await expect(page.locator("#widget-auth-github")).toBeVisible({
       timeout: 8_000,
     })
     await expect(page.locator("#login-control")).toHaveCount(0)

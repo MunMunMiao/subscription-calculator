@@ -8,18 +8,21 @@
 **舞台**：现有 DeskScene SVG（木桌 + 道具线稿），禁止换皮 / 新 scene-graph / 第二间房。  
 **相机（MunMun 锁 · 永不改）**：`#stage` viewBox `0 0 1280 800` **永远固定**。禁 zoom / 禁改 tilt / 禁切页 / 禁第二登录世界 / 禁相机跟踪。login-only 与 desk 同一木桌取景。enter = 物件飞入画框，相机不动。expanded dialog **叠在同一相机上**，不跟随 Widget。  
 **绑定**：时间轴绑场景态 `login-only | enter | desk | held(widgetId) | exit`，不绑路由。  
-**login-only**：同一木桌取景。空木桌 + **仅 auth Widget 家族**（现 `widget-login`「GitHub 登录」；可再加同类）。无内容 Widget、无杯笔植物胶带。禁把登录做成一次性 `#chrome-layer` / `#login-control` 角标。  
+**login-only**：同一木桌取景。空木桌 + **仅 auth Widget**（本版只有一块 `widget-auth-github`「GitHub 登录」）。无内容 Widget、无杯笔植物胶带。禁把登录做成一次性 `#chrome-layer` / `#login-control` 角标。  
+**Auth**：每个登录源自己一块桌上 Widget。**禁「更多登录」聚合 dialog**、禁 max-3 溢出桶。以后加源 = 桌上再放一块，不是收进一个入口。  
 **禁止**：整页 opacity fade；开本翻封面当主进场；切签换墨迹旧模型；同时两个 expanded；`widget-overview`；`|Δ|≤160` 微移后隐身冒充飞入/飞出；破损叠纸 / 把 HTML 纸裂在 compact 美术上冒充展开。  
 **双态（产品重锁 · iOS-like）**：桌上 **compact** = 异质摘要脸；点开 → **expanded dialog**（可操作详情/表单）；关 / 点木桌 → compact。旧闸「held = 只抬同一 SVG；禁第二脸」**作废**。展开必须是有意的第二显示态，等 UI 贴纸后再做；本分支 **暂停** P0-2「撕光 FO / 只抬同一 SVG」held UX，不把它当正式拿起。  
 **手感**：场景轨 400–700ms · soft ease（`power2.inOut` / `power1.out`）· 吉卜力日常；描边轻、硬影无；接触影 `dy≤3` · `std≤1.6` · `opacity≤0.16`。
 
 **v1 作废**：`sealed | opening | closing | browse | compose` 五态本/页签机、`#book-cover` 翻合、tab-flip / ink-swap 主隐喻全部清掉。本文件即 MOTION 唯一源。
 
-Auth Widget 家族（SCENE ids；login-only 上场，enter 整族出画）：
+Auth Widget（SCENE ids；login-only 上场，enter 出画。本版 **仅一块**）：
 
-| id             | 形态            | 在场                                       |
-| -------------- | --------------- | ------------------------------------------ |
-| `widget-login` | 「GitHub 登录」 | 仅 `login-only`；click → OAuth；enter 移出 |
+| id                   | 形态            | 在场                                       |
+| -------------------- | --------------- | ------------------------------------------ |
+| `widget-auth-github` | 「GitHub 登录」 | 仅 `login-only`；click → OAuth；enter 移出 |
+
+无 `widget-auth-more` / 「更多登录」。
 
 内容 Widget（SCENE ids）：
 
@@ -39,7 +42,7 @@ Auth Widget 家族（SCENE ids；login-only 上场，enter 整族出画）：
 
 ## 0. Widget 四态（idle / hover / act / held）
 
-适用：内容 Widget 四件；次要胶带仅前三态装饰反馈。Auth 家族（`widget-login` 等）在 login-only 用 idle/hover/act；无 held / 无 expand（等贴纸）。
+适用：内容 Widget 四件；次要胶带仅前三态装饰反馈。`widget-auth-github` 在 login-only 用 idle/hover/act；无 held / 无 expand（等贴纸）。
 
 对齐贴纸页（待发 compact/expanded）：**idle/compact = 放下摘要**。展开 dialog **等贴纸**。旧「held = 只抬起」不作正式 UX。
 
@@ -83,7 +86,7 @@ function setWidgetState(id, state) {
 
 ## 1. `enter`（登录成功 · 不可打断）
 
-顺序：auth 家族（现 `#widget-login`）**整件移出视口**（禁 fade / 禁半途隐身）→ 四内容 Widget **从画外**错落入槽 → `desk`。总长 ≈ 1.3–1.8s。输入锁定至 `onComplete`。
+顺序：`#widget-auth-github` **整件移出视口**（禁 fade / 禁半途隐身）→ 四内容 Widget **从画外**错落入槽 → `desk`。总长 ≈ 1.3–1.8s。输入锁定至 `onComplete`。
 
 **舞台**：`#stage` viewBox `0 0 1280 800`。  
 **硬闸（产品拒签 P0/P1）**：
@@ -112,7 +115,7 @@ const FROM = {
 }
 
 // login: fly UP until fully above y=0, then park
-const AUTH_OUT = { login: { x: 48, y: -840, rotate: -8 } } // slot y=752; -840 clears 800h camera
+const AUTH_OUT = { github: { x: 48, y: -840, rotate: -8 } } // slot y=752; -840 clears 800h camera
 
 function playEnterAfterLogin() {
   const tl = gsap.timeline({
@@ -129,14 +132,19 @@ function playEnterAfterLogin() {
     .to(
       AUTH_SELECTORS,
       {
-        ...AUTH_OUT.login,
+        ...AUTH_OUT.github,
         autoAlpha: 1,
         duration: 0.65,
         ease: "power1.out",
       },
       "loginOut"
     )
-    .set(AUTH_SELECTORS, { autoAlpha: 0, x: 0, y: AUTH_OUT.login.y, rotate: 0 }) // park ONLY after off-canvas
+    .set(AUTH_SELECTORS, {
+      autoAlpha: 0,
+      x: 0,
+      y: AUTH_OUT.github.y,
+      rotate: 0,
+    }) // park ONLY after off-canvas
 
   // 2) four content widgets fly IN from true offscreen into slots
   tl.addLabel("flyIn", "loginOut+=0.28")
@@ -181,7 +189,7 @@ function playEnterLoggedInRefresh() {
     defaults: { ease: "power2.inOut" },
     onStart: () => {
       lockInput(true)
-      gsap.set(AUTH_SELECTORS, { autoAlpha: 0, x: 0, y: AUTH_OUT.login.y }) // never on stage
+      gsap.set(AUTH_SELECTORS, { autoAlpha: 0, x: 0, y: AUTH_OUT.github.y }) // never on stage
     },
     onComplete: () => {
       lockInput(false)
@@ -264,8 +272,8 @@ function playExit(heldId /* string | null */) {
   tl.addLabel("loginIn", "flyOut+=0.4")
     .set(AUTH_SELECTORS, {
       autoAlpha: 1,
-      x: AUTH_OUT.login.x,
-      y: AUTH_OUT.login.y,
+      x: AUTH_OUT.github.x,
+      y: AUTH_OUT.github.y,
       rotate: -6,
       scale: 1,
     })
@@ -437,7 +445,7 @@ type ContentWidgetId =
   | "widget-subs"
   | "widget-charges"
   | "widget-compose";
-type AuthWidgetId = "widget-login"; // extensible auth family
+type AuthWidgetId = "widget-auth-github"; // one widget per source; no 更多登录
 // NO widget-overview
 
 playEnterAfterLogin(): Timeline; // flies AUTH_SELECTORS off, then content FROM
