@@ -2,7 +2,7 @@ import { ORPCError, os } from "@orpc/server"
 import { and, desc, eq } from "drizzle-orm"
 import { z } from "zod"
 
-import { subscription } from "@/db/schema"
+import { subscription, widgetLayout } from "@/db/schema"
 import {
   CATEGORIES,
   CURRENCIES,
@@ -11,6 +11,7 @@ import {
   SUBSCRIPTION_TYPES,
 } from "@/lib/catalog"
 import { demoSubscriptions } from "@/lib/demo-data"
+import { isStickerDefault } from "@/lib/widget-slots"
 import { parseAmountToCents } from "@/lib/money"
 import { toISODate } from "@/lib/spend"
 import type { AuthSession } from "@/lib/auth"
@@ -93,6 +94,18 @@ function mapSubscription(row: typeof subscription.$inferSelect) {
   }
 }
 
+export function intervalFields(input: {
+  type: "recurring" | "one_time"
+  interval?: "monthly" | "yearly" | "weekly" | "custom" | null
+  intervalDays?: number | null
+}) {
+  return {
+    interval: input.type === "recurring" ? (input.interval ?? null) : null,
+    intervalDays:
+      input.interval === "custom" ? (input.intervalDays ?? null) : null,
+  }
+}
+
 function shiftDate(offsetDays: number): string {
   const date = new Date()
   date.setUTCDate(date.getUTCDate() + offsetDays)
@@ -147,9 +160,7 @@ export const router = {
             category: input.category,
             notes: input.notes ?? null,
             type: input.type,
-            interval: input.type === "recurring" ? input.interval : null,
-            intervalDays:
-              input.interval === "custom" ? (input.intervalDays ?? null) : null,
+            ...intervalFields(input),
             chargeDate: input.chargeDate,
             status: input.status,
             createdAt: now,
@@ -177,9 +188,7 @@ export const router = {
             category: input.category,
             notes: input.notes ?? null,
             type: input.type,
-            interval: input.type === "recurring" ? input.interval : null,
-            intervalDays:
-              input.interval === "custom" ? (input.intervalDays ?? null) : null,
+            ...intervalFields(input),
             chargeDate: input.chargeDate,
             status: input.status,
             updatedAt: now,
@@ -251,6 +260,75 @@ export const router = {
         items: rows.map(mapSubscription),
       }
     }),
+  },
+  widgetLayouts: {
+    list: authed.handler(async ({ context }) => {
+      const rows = await context.db
+        .select()
+        .from(widgetLayout)
+        .where(eq(widgetLayout.userId, context.session.user.id))
+
+      return rows
+        .filter((row) => !isStickerDefault(row.widgetId, row))
+        .map((row) => ({
+          widgetId: row.widgetId,
+          x: row.x,
+          y: row.y,
+        }))
+    }),
+    save: authed
+      .input(
+        z.object({
+          widgetId: z.enum(["category", "subs", "charges", "compose"]),
+          x: z.number().finite(),
+          y: z.number().finite(),
+        })
+      )
+      .handler(async ({ context, input }) => {
+        if (isStickerDefault(input.widgetId, input)) {
+          await context.db
+            .delete(widgetLayout)
+            .where(
+              and(
+                eq(widgetLayout.userId, context.session.user.id),
+                eq(widgetLayout.widgetId, input.widgetId)
+              )
+            )
+          return {
+            stored: false as const,
+            widgetId: input.widgetId,
+            x: input.x,
+            y: input.y,
+          }
+        }
+
+        const now = new Date()
+        const saved = await context.db
+          .insert(widgetLayout)
+          .values({
+            userId: context.session.user.id,
+            widgetId: input.widgetId,
+            x: input.x,
+            y: input.y,
+            updatedAt: now,
+          })
+          .onConflictDoUpdate({
+            target: [widgetLayout.userId, widgetLayout.widgetId],
+            set: { x: input.x, y: input.y, updatedAt: now },
+          })
+          .returning()
+
+        if (saved.length === 0) {
+          throw new ORPCError("INTERNAL_SERVER_ERROR")
+        }
+
+        return {
+          stored: true as const,
+          widgetId: input.widgetId,
+          x: input.x,
+          y: input.y,
+        }
+      }),
   },
 }
 

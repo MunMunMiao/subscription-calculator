@@ -1,4 +1,11 @@
-import { index, integer, sqliteTable, text } from "drizzle-orm/sqlite-core"
+import {
+  index,
+  integer,
+  primaryKey,
+  real,
+  sqliteTable,
+  text,
+} from "drizzle-orm/sqlite-core"
 
 export const user = sqliteTable("user", {
   id: text("id").primaryKey(),
@@ -100,10 +107,28 @@ export const subscription = sqliteTable(
   ]
 )
 
+/** Per-user content-widget slot. Written only after a real drag, never for Auth. */
+export const widgetLayout = sqliteTable(
+  "widget_layout",
+  {
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    widgetId: text("widget_id", {
+      enum: ["category", "subs", "charges", "compose"],
+    }).notNull(),
+    x: real("x").notNull(),
+    y: real("y").notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.userId, table.widgetId] })]
+)
+
 export const schema = {
   user,
   session,
   account,
   verification,
   subscription,
+  widgetLayout,
 }

@@ -2,6 +2,7 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 @import "@fontsource-variable/geist";
+@import "lxgw-wenkai-webfont/lxgwwenkai-regular.css";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -150,23 +151,204 @@
   display: block;
 }
 
-.letter-paper,
+.desk-widget,
 .desk-prop,
 .pencil,
-.plant-leaf,
-.sparkle {
+.plant-leaf {
   transform-box: fill-box;
   transform-origin: 50% 50%;
 }
 
-.paper-layer {
-  position: absolute;
-  inset: 0;
-  z-index: 2;
+.content-widget text,
+.session-widget text {
+  font-family: "LXGW WenKai";
+  font-weight: 400;
+  fill: #2a2118;
+}
+
+#desk-art,
+#desk-art *,
+#prop-layer,
+#prop-layer *,
+.desk-prop {
+  pointer-events: none;
+}
+
+#desk-hit {
+  pointer-events: all;
+}
+
+[data-phase="login-only"] #desk-hit,
+[data-phase="enter"] #desk-hit {
+  pointer-events: none;
+}
+
+[data-phase="login-only"] .content-widget,
+[data-phase="login-only"] #prop-layer,
+[data-phase="login-only"] #widget-session {
+  visibility: hidden;
+  pointer-events: none;
+}
+
+[data-phase="desk"] #auth-layer,
+[data-phase="expanded"] #auth-layer,
+[data-phase="enter"]:not([data-from="login"]) #auth-layer {
+  visibility: hidden;
+  pointer-events: none;
+}
+
+#desk-dialog {
+  visibility: hidden;
+  filter: url(#widgetShadowFloat);
+}
+
+[data-phase="login-only"] #desk-dialog,
+[data-phase="enter"] #desk-dialog {
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+
+.dialog-host {
+  width: 100%;
+  height: 100%;
+  pointer-events: auto;
+}
+
+.dialog-paper {
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  overflow: auto;
+  padding: 22px 26px 28px;
+  border: 2.5px solid #2a2118;
+  border-radius: 18px;
+  background: #f3ead3;
+  color: #2a2118;
+  font-family: "Noto Serif SC", serif;
+  box-shadow: none;
+}
+
+.dialog-bar {
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.dialog-bar h2 {
+  margin: 0;
+  font-size: 28px;
+  font-weight: 700;
+}
+
+.dialog-paper button,
+.dialog-paper select,
+.dialog-paper input,
+.dialog-paper textarea {
+  font: inherit;
+  color: #2a2118;
+  background: #f6eedc;
+  border: 1.5px solid #2a2118;
+  border-radius: 8px;
+}
+
+.dialog-paper button {
+  cursor: pointer;
+  padding: 4px 12px;
+}
+
+.chip-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.chip-cell {
+  min-height: 64px;
+  border-radius: 14px;
+  border: 2px solid #2a2118;
+  display: flex;
+  align-items: flex-end;
+  padding: 8px 10px;
+  color: #2a2118;
+  font-weight: 700;
+}
+
+.dialog-list,
+.charge-timeline {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.dialog-list li,
+.charge-timeline li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0;
+  border-bottom: 1px solid rgba(42, 33, 24, 0.16);
+}
+
+.compose-form {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px 16px;
+}
+
+.compose-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 14px;
+}
+
+.compose-form input,
+.compose-form select,
+.compose-form textarea {
+  padding: 6px 8px;
+}
+
+.compose-form textarea {
+  min-height: 72px;
+}
+
+[data-locked="true"] .auth-widget {
   pointer-events: none;
+}
+
+.auth-widget,
+.session-widget {
+  cursor: pointer;
+  touch-action: none;
+}
+
+.content-widget {
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+
+.content-widget .ink-shadow,
+.auth-widget .ink-shadow,
+.session-widget .ink-shadow {
+  filter: url(#widgetShadowDesk);
+}
+
+.desk-root[data-dragging="category"] #widget-category .ink-shadow,
+.desk-root[data-dragging="subs"] #widget-subs .ink-shadow,
+.desk-root[data-dragging="charges"] #widget-charges .ink-shadow,
+.desk-root[data-dragging="compose"] #widget-compose .ink-shadow {
+  filter: url(#widgetShadowLift);
+}
+
+.paper-layer {
+  display: none;
 }
 
 .paper-slot {
