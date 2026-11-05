@@ -152,13 +152,19 @@ async function expectAuthFullyVisible() {
       const box = node?.getBoundingClientRect()
       const text = node?.querySelector("text")?.getBoundingClientRect()
       if (!box || !text || box.width < 20 || text.width < 8) return false
-      return [box, text].every(
+      const onScreen = [box, text].every(
         (rect) =>
           rect.left >= -0.5 &&
           rect.top >= -0.5 &&
           rect.right <= window.innerWidth + 0.5 &&
           rect.bottom <= window.innerHeight + 0.5
       )
+      const labelInsideFace =
+        text.left >= box.left - 0.5 &&
+        text.top >= box.top - 0.5 &&
+        text.right <= box.right + 0.5 &&
+        text.bottom <= box.bottom + 0.5
+      return onScreen && labelInsideFace
     })
     .toBe(true)
 }
@@ -244,6 +250,14 @@ describe("PM desk path", () => {
     expect(
       document.getElementById("widget-auth-github")?.textContent
     ).toContain("GitHub 登录")
+    expect(
+      document
+        .getElementById("widget-auth-github-slot")
+        ?.getAttribute("transform")
+    ).toBe("translate(530 368)")
+    const authFace = document.querySelector("#widget-auth-github rect")
+    expect(authFace?.getAttribute("width")).toBe("220")
+    expect(authFace?.getAttribute("height")).toBe("64")
     for (const id of [
       "widget-category",
       "widget-subs",

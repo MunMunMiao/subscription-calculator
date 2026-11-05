@@ -543,13 +543,13 @@ function AuthGithubWidget({ onLogin }: { onLogin: () => void }) {
           stroke={INK}
           strokeWidth="2.2"
         />
-        <path transform="translate(14 12)" fill={INK} d={GITHUB_MARK} />
+        <path transform="translate(28 20)" fill={INK} d={GITHUB_MARK} />
         <text
-          x="108"
-          y="31"
+          x="128"
+          y="40"
           textAnchor="middle"
           fill={INK}
-          fontSize="15"
+          fontSize="16"
           fontFamily="Klee One, cursive"
           fontWeight="700"
         >

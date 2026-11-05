@@ -161,8 +161,10 @@ describe("MOTION §§1–3 hard gates", () => {
     expect(AUTH_OUT.github).toEqual({ x: 48, y: -840, rotate: -8 })
     expect(Math.abs(AUTH_OUT.github.y)).toBeGreaterThanOrEqual(420)
     expect(AUTH_OUT.github.y).not.toBe(-160)
-    expect(AUTH_SLOTS.github.x).toBeGreaterThan(STAGE.w * 0.7)
-    expect(AUTH_SLOTS.github.y).toBeGreaterThan(STAGE.h * 0.7)
+    expect(AUTH_SLOTS.github).toEqual({ x: 530, y: 368 })
+    expect(AUTH_GITHUB_FACE).toEqual({ w: 220, h: 64 })
+    expect(AUTH_SLOTS.github.x + AUTH_GITHUB_FACE.w / 2).toBe(STAGE.w / 2)
+    expect(AUTH_SLOTS.github.y + AUTH_GITHUB_FACE.h / 2).toBe(STAGE.h / 2)
     expect(
       AUTH_SLOTS.github.y + AUTH_GITHUB_FACE.h + AUTH_OUT.github.y
     ).toBeLessThan(0)
@@ -193,7 +195,7 @@ describe("slice-safe auth placement", () => {
     expect(same.w).toBeCloseTo(1280)
   })
 
-  test("github face sits inside the conservative inset, and the old corner does not", () => {
+  test("github face is desk-center, inside the slice inset and 80px from the viewBox", () => {
     const safe = sliceSafeRect()
     expect(SLICE_MARGIN).toBe(20)
     expect(safe).toEqual({ x: 160, y: 60, right: 1120, bottom: 740 })
@@ -203,10 +205,29 @@ describe("slice-safe auth placement", () => {
       right: AUTH_SLOTS.github.x + AUTH_GITHUB_FACE.w,
       bottom: AUTH_SLOTS.github.y + AUTH_GITHUB_FACE.h,
     }
+    expect(box).toEqual({ x: 530, y: 368, right: 750, bottom: 432 })
     expect(box.x).toBeGreaterThanOrEqual(safe.x)
     expect(box.y).toBeGreaterThanOrEqual(safe.y)
     expect(box.right).toBeLessThanOrEqual(safe.right)
     expect(box.bottom).toBeLessThanOrEqual(safe.bottom)
+    const edge = 80
+    expect(box.x).toBeGreaterThanOrEqual(edge)
+    expect(box.y).toBeGreaterThanOrEqual(edge)
+    expect(STAGE.w - box.right).toBeGreaterThanOrEqual(edge)
+    expect(STAGE.h - box.bottom).toBeGreaterThanOrEqual(edge)
+    const corners = [
+      { x: 1116, y: 752, w: 148, h: 36 },
+      { x: 924, y: 656, w: 176, h: 48 },
+      { x: 980, y: 620, w: 176, h: 48 },
+    ]
+    for (const corner of corners) {
+      expect({ x: corner.x, y: corner.y }).not.toEqual(AUTH_SLOTS.github)
+      const distance = Math.hypot(
+        corner.x + corner.w / 2 - STAGE.w / 2,
+        corner.y + corner.h / 2 - STAGE.h / 2
+      )
+      expect(distance).toBeGreaterThan(300)
+    }
     expect(1116 + 148).toBeGreaterThan(safe.right)
     expect(752 + 36).toBeGreaterThan(safe.bottom)
     const tight = sliceSafeRect([16 / 9], 0)

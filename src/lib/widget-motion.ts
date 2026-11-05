@@ -75,14 +75,14 @@ export const CONTENT_SLOTS = {
   compose: { x: 320, y: 168 },
 } as const satisfies Record<ContentWidgetId, { x: number; y: number }>
 
-/** On the wood, inside the slice-safe inset. Not flush to the viewport corner. */
+/** Desk-center idle home. Face bbox stays ≥80px inside the 1280×800 viewBox. */
 export const AUTH_SLOTS = {
-  github: { x: 924, y: 656 },
+  github: { x: 530, y: 368 },
 } as const satisfies Record<AuthWidgetId, { x: number; y: number }>
 
-export const AUTH_GITHUB_FACE = { w: 176, h: 48 } as const
+export const AUTH_GITHUB_FACE = { w: 220, h: 64 } as const
 
-/** Per-auth-widget off-canvas. Must clear the 800h camera. */
+/** Per-auth-widget off-canvas. From y=368, h=64, y=-840 still clears the camera. */
 export const AUTH_OUT = {
   github: { x: 48, y: -840, rotate: -8 },
 } as const satisfies Record<

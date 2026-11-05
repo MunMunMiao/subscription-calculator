@@ -113,7 +113,7 @@ const FROM = {
 }
 
 // login: fly UP until fully above y=0, then park
-const AUTH_OUT = { github: { x: 48, y: -840, rotate: -8 } } // slot y=656, face h=48; -840 still clears y=0
+const AUTH_OUT = { github: { x: 48, y: -840, rotate: -8 } } // home translate(530 368), face 220×64; -840 still clears y=0
 
 function playEnterAfterLogin() {
   const tl = gsap.timeline({
@@ -302,7 +302,7 @@ compact 摘要脸留在槽里。点开后 `#desk-dialog` 是另一张同相机�
 
 - **compact**：`desk` 且 `expanded === null` = 总览。四件摘要；顶栏仅 `$X.XX / 月`。无 `foreignObject`。
 - **expanded**：点内容 Widget → `expandWidget`。关（`#dialog-close`）/ 点 `#desk-hit` / 再点同一件 → `collapseExpanded`。点另一件仍只展开一个。
-- **Auth**：compact-only。`#widget-auth-github` 整块（含「GitHub 登录」）落在切片安全区，不当角标贴在视口边上。
+- **Auth**：compact-only。`#widget-auth-github` 闲置停在桌心 `translate(530 368)`，脸约 220×64（包围盒 `530–750 × 368–432`，距 1280×800 四边 ≥80）。仍在切片安全区内，不当角标。
 - **相机**：全程不 transform `#stage`。
 - **命中**：木纹 / 污渍 / 植物 `pointer-events: none`。Dialog 组默认不吃事件，纸卡内部才接收点击。
 
