@@ -87,7 +87,7 @@ bun run dev
 
 Open `http://localhost:3000`.
 
-1. Unauthed landing is `login-only`: a **bare wooden desk** plus a bottom-right **GitHub 登录** badge. No desk login card, no cup/pen/plant/tape, no content widgets, and no overview widget.
+1. Unauthed landing is `login-only`: the **same 1280×800 wood desk camera** (no zoom, tilt, or page cut) plus a bottom-right **GitHub 登录** badge in `#chrome-layer`. No desk login card, no cup/pen/plant/tape, no content widgets, and no overview widget.
 2. After GitHub OAuth (or Preview `/?e2e=browse`), MOTION `enter` flies the four content widgets in from off-screen. Idle desk with nothing held **is** 总览.
 3. Desk widgets are **compact** summary faces. Expanded dialog faces wait on a UI sticker (old “held = lift the same SVG” gate is obsolete). Logout plays `exit`. `/app`, `/login`, and `/subscriptions` redirect to `/`.
 
@@ -116,7 +116,7 @@ Preview a production build locally with `bun run preview` (Workers runtime via t
 | GSAP register   | `src/lib/gsap.ts`                                               |
 | Spend math      | `src/lib/spend.ts`                                              |
 
-The visible desk and stationery are one SVG scene. Content lives in heterogeneous widgets (`widget-category`, `widget-subs`, `widget-charges`, `widget-compose`). Unauth login is HTML chrome (`#login-control`), not a desk object. GSAP timelines bind to `login-only | enter | desk | held | exit` (see `MOTION.md`). TanStack Router is not used to switch those views.
+The visible desk and stationery are one SVG scene with a **fixed camera** (`#stage` viewBox `0 0 1280 800`). Content lives in heterogeneous widgets (`widget-category`, `widget-subs`, `widget-charges`, `widget-compose`). Unauth login is `#chrome-layer` viewport chrome (`#login-control`), not a desk object and not a second camera. GSAP timelines bind to `login-only | enter | desk | held | exit` (see `MOTION.md`). TanStack Router is not used to switch those views.
 
 Amounts are stored as integer minor units (`amount_cents`). USD and CNY are totaled separately; the app does not invent an exchange rate.
 

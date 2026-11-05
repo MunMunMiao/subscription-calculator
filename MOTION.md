@@ -6,8 +6,9 @@
 - [手帐 UI Widget 贴纸 v2](https://cursor.com/canvas/store-ca500a49-1eed-4ab7-8196-83b91a8be5cd/cfcda443-ab93-4e33-bdce-4765e55443fb)
 
 **舞台**：现有 DeskScene SVG（木桌 + 道具线稿），禁止换皮 / 新 scene-graph / 第二间房。  
+**相机（MunMun 锁 · 永不改）**：`#stage` viewBox `0 0 1280 800` **永远固定**。禁 zoom / 禁改 tilt / 禁切页 / 禁第二登录世界 / 禁相机跟踪。login-only 与 desk 同一木桌取景。`#login-control` 是 **同一视口** 右下角 chrome（`#chrome-layer`，在桌物件槽外），不是另一层浮动 UI、也不是另一台相机。enter = 物件飞入画框，相机不动。expanded dialog **叠在同一相机上**，不跟随 Widget。  
 **绑定**：时间轴绑场景态 `login-only | enter | desk | held(widgetId) | exit`，不绑路由。  
-**login-only**：光木桌。零桌上物件（无登录卡 / 无杯笔植物胶带 / 无内容 Widget）。登录是右下角标 `#login-control`「GitHub 登录」，不是桌上物件。`widget-login` 作废。  
+**login-only**：同一木桌取景。零桌上物件（无登录卡 / 无杯笔植物胶带 / 无内容 Widget）。登录是右下角标 `#login-control`「GitHub 登录」，不是桌上物件。`widget-login` 作废。  
 **禁止**：整页 opacity fade；开本翻封面当主进场；切签换墨迹旧模型；同时两个 expanded；`widget-overview`；`|Δ|≤160` 微移后隐身冒充飞入/飞出；破损叠纸 / 把 HTML 纸裂在 compact 美术上冒充展开。  
 **双态（产品重锁 · iOS-like）**：桌上 **compact** = 异质摘要脸；点开 → **expanded dialog**（可操作详情/表单）；关 / 点木桌 → compact。旧闸「held = 只抬同一 SVG；禁第二脸」**作废**。展开必须是有意的第二显示态，等 UI 贴纸后再做；本分支 **暂停** P0-2「撕光 FO / 只抬同一 SVG」held UX，不把它当正式拿起。  
 **手感**：场景轨 400–700ms · soft ease（`power2.inOut` / `power1.out`）· 吉卜力日常；描边轻、硬影无；接触影 `dy≤3` · `std≤1.6` · `opacity≤0.16`。
@@ -106,7 +107,7 @@ const FROM = {
 }
 
 // login: fly UP until fully above y=0, then park
-const LOGIN_OUT = { x: 48, y: -720, rotate: -8 } // -720 clears ~center card on 800h
+const LOGIN_OUT = { x: 48, y: -840, rotate: -8 } // slot y=752; -840 clears 800h camera
 
 function playEnterAfterLogin() {
   const tl = gsap.timeline({
@@ -293,7 +294,7 @@ function playExit(heldId /* string | null */) {
 工程现状（#8 可继续合进预览、**不要当正式 held UX 验收**）：状态机仍叫 `held`，只作占位点击；compact 摘要（P1-6）才是本版桌上脸。
 
 - **compact**：`desk` 全 idle = 总览；四件摘要墨迹；顶栏仅 `$X.XX / 月`。
-- **expanded**：点 Widget → 对话框式详情/表单（**未做，等贴纸**）。关 / 点木桌 → compact。
+- **expanded**：点 Widget → 对话框式详情/表单（**未做，等贴纸**）。关 / 点木桌 → compact。Dialog **叠在同一相机上**，不跟 Widget 飞、不改 viewBox。
 - **同时只一个 expanded**。`#login-control` 不是桌上 Widget。
 - **命中**：木纹 / 污渍 / 植物等装饰必须 `pointer-events: none`（或等价）。
 

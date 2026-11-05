@@ -4,6 +4,17 @@ function desk(page: Page) {
   return page.getByTestId("desk-root")
 }
 
+async function assertFixedCamera(page: Page) {
+  await expect(page.locator("#stage")).toHaveAttribute(
+    "viewBox",
+    "0 0 1280 800"
+  )
+  const transform = await page
+    .locator("#stage")
+    .evaluate((node) => getComputedStyle(node).transform)
+  expect(transform).toBe("none")
+}
+
 async function gsapXY(page: Page, selector: string) {
   return page.locator(selector).evaluate((node) => {
     const vars = (
@@ -27,15 +38,16 @@ test.describe("Widget desk smoke", () => {
   }) => {
     await page.goto("/")
     await expect(desk(page)).toHaveAttribute("data-phase", "login-only")
+    await assertFixedCamera(page)
     await expect(page.locator("#widget-login")).toHaveCount(0)
-    await expect(page.locator("#login-control")).toBeVisible()
+    await expect(page.locator("#stage #login-control")).toBeVisible()
     await expect(page.locator("#login-control")).toContainText("GitHub 登录")
     const badge = await page.locator("#login-control").boundingBox()
-    const viewport = page.viewportSize()
+    const stage = await page.locator("#stage").boundingBox()
     expect(badge).toBeTruthy()
-    expect(viewport).toBeTruthy()
-    expect(badge!.x).toBeGreaterThan(viewport!.width * 0.55)
-    expect(badge!.y).toBeGreaterThan(viewport!.height * 0.55)
+    expect(stage).toBeTruthy()
+    expect(badge!.x).toBeGreaterThan(stage!.x + stage!.width * 0.55)
+    expect(badge!.y).toBeGreaterThan(stage!.y + stage!.height * 0.55)
     await expect(page.locator("#widget-overview")).toHaveCount(0)
     await expect(page.locator("#widget-category")).toBeHidden()
     await expect(page.locator("#widget-subs")).toBeHidden()
@@ -60,6 +72,7 @@ test.describe("Widget desk smoke", () => {
       await page.waitForTimeout(50)
     }
     await expect(root).toHaveAttribute("data-phase", "desk", { timeout: 8_000 })
+    await assertFixedCamera(page)
     if (maxAbs > 0) expect(maxAbs).toBeGreaterThan(160)
     await expect(root).toHaveAttribute("data-held", "")
     await expect(page.locator("#widget-overview")).toHaveCount(0)

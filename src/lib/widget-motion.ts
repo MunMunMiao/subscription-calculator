@@ -18,7 +18,11 @@ export const CONTENT_SELECTORS = [
 export const STAGE = { w: 1280, h: 800 } as const
 export const OFF = 480
 export const LOGIN_CONTROL = "#login-control"
-export const LOGIN_OUT = { x: 48, y: -720, rotate: -8 } as const
+/** Bottom-right of the same 1280×800 camera. Not a desk-object slot. */
+export const LOGIN_SLOT = { x: 1116, y: 752 } as const
+export const LOGIN_BADGE = { w: 148, h: 36 } as const
+/** Clears LOGIN_SLOT.y + LOGIN_BADGE.h above y=0 on the fixed 800h camera. */
+export const LOGIN_OUT = { x: 48, y: -840, rotate: -8 } as const
 
 export const FROM = {
   "#widget-category": { x: -OFF, y: -80 },
@@ -47,6 +51,7 @@ export const SECONDARY_TAPE_IDS = [
   "prop-tape-gingham",
 ] as const
 
+/** Camera is the SVG viewBox. Never tween #stage / #desk / viewBox. */
 function reduceMotion() {
   return window.matchMedia("(prefers-reduced-motion: reduce)").matches
 }
