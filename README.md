@@ -89,7 +89,7 @@ Open `http://localhost:3000`.
 
 1. Unauthed landing is `login-only`: a **bare wooden desk** plus a bottom-right **GitHub 登录** badge. No desk login card, no cup/pen/plant/tape, no content widgets, and no overview widget.
 2. After GitHub OAuth (or Preview `/?e2e=browse`), MOTION `enter` flies the four content widgets in from off-screen. Idle desk with nothing held **is** 总览.
-3. Click a widget to pick it up (`held`); click the wood to put it down. Logout plays `exit`. `/app`, `/login`, and `/subscriptions` redirect to `/`.
+3. Desk widgets are **compact** summary faces. Expanded dialog faces wait on a UI sticker (old “held = lift the same SVG” gate is obsolete). Logout plays `exit`. `/app`, `/login`, and `/subscriptions` redirect to `/`.
 
 `install` + `check` + `build` do **not** need real GitHub/Cloudflare credentials. Runtime sign-in, D1 persistence, and `wrangler deploy` do.
 

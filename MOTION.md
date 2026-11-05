@@ -8,7 +8,8 @@
 **舞台**：现有 DeskScene SVG（木桌 + 道具线稿），禁止换皮 / 新 scene-graph / 第二间房。  
 **绑定**：时间轴绑场景态 `login-only | enter | desk | held(widgetId) | exit`，不绑路由。  
 **login-only**：光木桌。零桌上物件（无登录卡 / 无杯笔植物胶带 / 无内容 Widget）。登录是右下角标 `#login-control`「GitHub 登录」，不是桌上物件。`widget-login` 作废。  
-**禁止**：整页 opacity fade；第二张 HTML 纸；开本翻封面当主进场；切签换墨迹旧模型；同时两个 held；`widget-overview`；`|Δ|≤160` 微移后隐身冒充飞入/飞出。  
+**禁止**：整页 opacity fade；开本翻封面当主进场；切签换墨迹旧模型；同时两个 expanded；`widget-overview`；`|Δ|≤160` 微移后隐身冒充飞入/飞出；破损叠纸 / 把 HTML 纸裂在 compact 美术上冒充展开。  
+**双态（产品重锁 · iOS-like）**：桌上 **compact** = 异质摘要脸；点开 → **expanded dialog**（可操作详情/表单）；关 / 点木桌 → compact。旧闸「held = 只抬同一 SVG；禁第二脸」**作废**。展开必须是有意的第二显示态，等 UI 贴纸后再做；本分支 **暂停** P0-2「撕光 FO / 只抬同一 SVG」held UX，不把它当正式拿起。  
 **手感**：场景轨 400–700ms · soft ease（`power2.inOut` / `power1.out`）· 吉卜力日常；描边轻、硬影无；接触影 `dy≤3` · `std≤1.6` · `opacity≤0.16`。
 
 **v1 作废**：`sealed | opening | closing | browse | compose` 五态本/页签机、`#book-cover` 翻合、tab-flip / ink-swap 主隐喻全部清掉。本文件即 MOTION 唯一源。
@@ -34,7 +35,7 @@
 
 适用：`widget-category` · `widget-subs` · `widget-charges` · `widget-compose`；次要胶带仅前三态装饰反馈。`#login-control` 不是桌上 Widget，无四态拿放。
 
-对齐贴纸页：**idle = 放下** · **held = 拿起**。`settle` / put-down = held → 回槽 → idle。
+对齐贴纸页（待发 compact/expanded）：**idle/compact = 放下摘要**。展开 dialog **等贴纸**。旧「held = 只抬起」不作正式 UX。
 
 | 态      | 含义            | tween（相对 slot 基线）                                    | 时长      |
 | ------- | --------------- | ---------------------------------------------------------- | --------- |
@@ -283,12 +284,18 @@ function playExit(heldId /* string | null */) {
 
 ---
 
-## 4. `held` / put-down（桌上拿放）
+## 4. compact / expanded（桌上双态 · **等 UI 贴纸，本分支不实现展开**）
 
-- **拿起**：`desk` → 点某内容 Widget → `held(widgetId)`；抬起置前（四态 `held`）；其它件可轻让位 / 压暗，但仍贴槽。
-- **放下**：点空桌 / 显式放下 / **再点当前 held 同件** / 点另一 Widget → 当前件回槽 `idle` → `desk`；若点了另一件，再播其 `held`。同件再点与点空桌等价。
-- **同时只一个 held**。登录件不在 desk 态上场，故无拿起轨。
-- **命中**：木纹 / 污渍 / 植物等装饰必须 `pointer-events: none`（或等价），空桌放下命中是工程硬闸，不改轨时长。
+产品重锁：compact 摘要脸 ↔ expanded 全屏/对话框操作态（iOS-like）。  
+**暂停**：P0-2「held = 只抬同一 SVG；禁任何第二脸 / 撕光 FO」。  
+**仍禁**：裂开的 HTML 纸叠在 compact 线稿上。展开必须是独立 dialog 呈现，等贴纸。
+
+工程现状（#8 可继续合进预览、**不要当正式 held UX 验收**）：状态机仍叫 `held`，只作占位点击；compact 摘要（P1-6）才是本版桌上脸。
+
+- **compact**：`desk` 全 idle = 总览；四件摘要墨迹；顶栏仅 `$X.XX / 月`。
+- **expanded**：点 Widget → 对话框式详情/表单（**未做，等贴纸**）。关 / 点木桌 → compact。
+- **同时只一个 expanded**。`#login-control` 不是桌上 Widget。
+- **命中**：木纹 / 污渍 / 植物等装饰必须 `pointer-events: none`（或等价）。
 
 ```js
 let heldId = null
@@ -327,7 +334,7 @@ function putDown() {
 // click another widget → pickUp(otherId)  // handles put-down internally
 ```
 
-`widget-compose` held 时：笔压下；本件内只有 SVG 横线 + 短填墨迹（禁 foreignObject / HTML 纸 / 系统滚动条）。保存墨迹长在本件。其余 held：色块可微弹、索引卡可翻、票根可滑——物件内反馈，不换皮。
+展开对话脸（compose 表单、订阅列表操作等）**等 UI compact/expanded 贴纸后再做**。禁止把旧 FO 纸层当展开。
 
 ---
 
