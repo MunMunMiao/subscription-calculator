@@ -1,27 +1,33 @@
-/// <reference types="bun-types" />
-import { describe, expect, test } from "bun:test"
+import { describe, expect, test } from "vitest"
 
 import {
+  AUTH_SCENE_IDS,
   AUTH_WIDGET_IDS,
+  CONTENT_SCENE_IDS,
   CONTENT_WIDGET_IDS,
   WIDGET_FOUR_STATES,
   WIDGET_SCENE_IDS,
   bootDesk,
+  isAuthWidgetId,
+  isContentWidgetId,
+  isDeskLocked,
   isOverview,
   reduceDesk,
+  sceneIdFor,
+  type DeskEvent,
   type DeskSnapshot,
 } from "./widget-machine"
 
 const loginOnly: DeskSnapshot = {
   phase: "login-only",
-  held: null,
+  expanded: null,
   locked: false,
   fromLogin: false,
 }
 
 const deskIdle: DeskSnapshot = {
   phase: "desk",
-  held: null,
+  expanded: null,
   locked: false,
   fromLogin: false,
 }
@@ -37,8 +43,17 @@ describe("content widgets", () => {
     expect(CONTENT_WIDGET_IDS).not.toContain("overview")
     expect(WIDGET_SCENE_IDS).not.toHaveProperty("overview")
     expect(isOverview(deskIdle)).toBe(true)
-    expect(isOverview({ ...deskIdle, held: "category" })).toBe(false)
-    expect(isOverview({ ...deskIdle, phase: "held", held: "subs" })).toBe(false)
+    expect(isOverview({ ...deskIdle, expanded: "category" })).toBe(false)
+    expect(
+      isOverview({ ...deskIdle, phase: "expanded", expanded: "subs" })
+    ).toBe(false)
+    expect(CONTENT_SCENE_IDS).toEqual([
+      "widget-category",
+      "widget-subs",
+      "widget-charges",
+      "widget-compose",
+    ])
+    expect(AUTH_SCENE_IDS).toEqual(["widget-auth-github"])
   })
 
   test("scene ids are four content shells plus the auth family", () => {
@@ -53,6 +68,17 @@ describe("content widgets", () => {
       github: "widget-auth-github",
     })
     expect(WIDGET_SCENE_IDS).not.toHaveProperty("more")
+    expect(sceneIdFor("github")).toBe("widget-auth-github")
+    expect(sceneIdFor("compose")).toBe("widget-compose")
+    expect(isContentWidgetId("subs")).toBe(true)
+    expect(isContentWidgetId("github")).toBe(false)
+    expect(isAuthWidgetId("github")).toBe(true)
+    expect(isAuthWidgetId("subs")).toBe(false)
+    expect(isDeskLocked("enter")).toBe(true)
+    expect(isDeskLocked("exit")).toBe(true)
+    expect(isDeskLocked("desk")).toBe(false)
+    expect(isDeskLocked("expanded")).toBe(false)
+    expect(isDeskLocked("login-only")).toBe(false)
   })
 
   test("four-state recipe is idle | hover | act | held", () => {
@@ -61,7 +87,7 @@ describe("content widgets", () => {
 })
 
 describe("bootDesk", () => {
-  test("unauthed boot is login-only with no held widget", () => {
+  test("unauthed boot is login-only with nothing expanded", () => {
     expect(bootDesk({ user: false, fromLogin: false })).toEqual(loginOnly)
     expect(bootDesk({ user: false, fromLogin: true })).toEqual(loginOnly)
   })
@@ -69,16 +95,16 @@ describe("bootDesk", () => {
   test("logged-in refresh boots enter (fly-in), not a static desk teleport", () => {
     expect(bootDesk({ user: true, fromLogin: false })).toEqual({
       phase: "enter",
-      held: null,
+      expanded: null,
       locked: true,
       fromLogin: false,
     })
   })
 
-  test("fresh login boots enter with fromLogin so login can fly out", () => {
+  test("fresh login boots enter with fromLogin so auth can fly out", () => {
     expect(bootDesk({ user: true, fromLogin: true })).toEqual({
       phase: "enter",
-      held: null,
+      expanded: null,
       locked: true,
       fromLogin: true,
     })
@@ -86,11 +112,17 @@ describe("bootDesk", () => {
 })
 
 describe("reduceDesk", () => {
+  test("boot event rebuilds the snapshot", () => {
+    expect(
+      reduceDesk(deskIdle, { type: "boot", user: false, fromLogin: true })
+    ).toEqual(loginOnly)
+  })
+
   test("login-success from login-only → enter (locked, fromLogin)", () => {
     const next = reduceDesk(loginOnly, { type: "login-success" })
     expect(next).toEqual({
       phase: "enter",
-      held: null,
+      expanded: null,
       locked: true,
       fromLogin: true,
     })
@@ -103,78 +135,92 @@ describe("reduceDesk", () => {
     expect(isOverview(desk)).toBe(true)
   })
 
-  test("pick from desk holds that id; at most one held", () => {
-    const held = reduceDesk(deskIdle, { type: "pick", id: "category" })
-    expect(held).toEqual({
-      phase: "held",
-      held: "category",
+  test("expand from desk opens that id; at most one expanded", () => {
+    const expanded = reduceDesk(deskIdle, { type: "expand", id: "category" })
+    expect(expanded).toEqual({
+      phase: "expanded",
+      expanded: "category",
       locked: false,
       fromLogin: false,
     })
-    expect(isOverview(held)).toBe(false)
+    expect(isOverview(expanded)).toBe(false)
   })
 
-  test("put-down from held returns desk idle overview", () => {
-    const held = reduceDesk(deskIdle, { type: "pick", id: "subs" })
-    expect(reduceDesk(held, { type: "put-down" })).toEqual(deskIdle)
+  test("collapse from expanded returns desk idle overview", () => {
+    const expanded = reduceDesk(deskIdle, { type: "expand", id: "subs" })
+    expect(reduceDesk(expanded, { type: "collapse" })).toEqual(deskIdle)
   })
 
-  test("pick another while held switches to that id", () => {
-    const held = reduceDesk(deskIdle, { type: "pick", id: "category" })
-    const swapped = reduceDesk(held, { type: "pick", id: "charges" })
-    expect(swapped.phase).toBe("held")
-    expect(swapped.held).toBe("charges")
+  test("expand another while expanded switches to that id", () => {
+    const expanded = reduceDesk(deskIdle, { type: "expand", id: "category" })
+    const swapped = reduceDesk(expanded, { type: "expand", id: "charges" })
+    expect(swapped.phase).toBe("expanded")
+    expect(swapped.expanded).toBe("charges")
   })
 
-  test("pick the already-held widget puts it down to desk idle", () => {
-    const held = reduceDesk(deskIdle, { type: "pick", id: "compose" })
-    expect(reduceDesk(held, { type: "pick", id: "compose" })).toEqual(deskIdle)
+  test("expand the already-open widget collapses to desk idle", () => {
+    const expanded = reduceDesk(deskIdle, { type: "expand", id: "compose" })
+    expect(reduceDesk(expanded, { type: "expand", id: "compose" })).toEqual(
+      deskIdle
+    )
   })
 
   test("logout from desk → exit → login-only", () => {
     const exiting = reduceDesk(deskIdle, { type: "logout" })
     expect(exiting).toEqual({
       phase: "exit",
-      held: null,
+      expanded: null,
       locked: true,
       fromLogin: false,
     })
     expect(reduceDesk(exiting, { type: "exit-done" })).toEqual(loginOnly)
   })
 
-  test("logout from held first clears held then exits", () => {
-    const held = reduceDesk(deskIdle, { type: "pick", id: "compose" })
-    const exiting = reduceDesk(held, { type: "logout" })
+  test("logout from expanded clears the dialog then exits", () => {
+    const expanded = reduceDesk(deskIdle, { type: "expand", id: "compose" })
+    const exiting = reduceDesk(expanded, { type: "logout" })
     expect(exiting.phase).toBe("exit")
-    expect(exiting.held).toBe(null)
+    expect(exiting.expanded).toBe(null)
     expect(exiting.locked).toBe(true)
   })
 
   test("enter is non-interruptible", () => {
     const entering = reduceDesk(loginOnly, { type: "login-success" })
-    expect(reduceDesk(entering, { type: "pick", id: "subs" })).toEqual(entering)
-    expect(reduceDesk(entering, { type: "put-down" })).toEqual(entering)
+    expect(reduceDesk(entering, { type: "expand", id: "subs" })).toEqual(
+      entering
+    )
+    expect(reduceDesk(entering, { type: "collapse" })).toEqual(entering)
     expect(reduceDesk(entering, { type: "logout" })).toEqual(entering)
     expect(reduceDesk(entering, { type: "login-success" })).toEqual(entering)
+    expect(reduceDesk(entering, { type: "exit-done" })).toEqual(entering)
   })
 
   test("exit is non-interruptible", () => {
     const exiting = reduceDesk(deskIdle, { type: "logout" })
-    expect(reduceDesk(exiting, { type: "pick", id: "category" })).toEqual(
+    expect(reduceDesk(exiting, { type: "expand", id: "category" })).toEqual(
       exiting
     )
-    expect(reduceDesk(exiting, { type: "put-down" })).toEqual(exiting)
+    expect(reduceDesk(exiting, { type: "collapse" })).toEqual(exiting)
     expect(reduceDesk(exiting, { type: "logout" })).toEqual(exiting)
     expect(reduceDesk(exiting, { type: "login-success" })).toEqual(exiting)
     expect(reduceDesk(exiting, { type: "enter-done" })).toEqual(exiting)
   })
 
-  test("pick/put-down/logout are ignored on login-only", () => {
-    expect(reduceDesk(loginOnly, { type: "pick", id: "category" })).toEqual(
+  test("login-success does nothing once the desk is already open", () => {
+    expect(reduceDesk(deskIdle, { type: "login-success" })).toEqual(deskIdle)
+  })
+
+  test("expand/collapse/logout are ignored on login-only", () => {
+    expect(reduceDesk(loginOnly, { type: "expand", id: "category" })).toEqual(
       loginOnly
     )
-    expect(reduceDesk(loginOnly, { type: "put-down" })).toEqual(loginOnly)
+    expect(reduceDesk(loginOnly, { type: "collapse" })).toEqual(loginOnly)
     expect(reduceDesk(loginOnly, { type: "logout" })).toEqual(loginOnly)
     expect(reduceDesk(loginOnly, { type: "enter-done" })).toEqual(loginOnly)
+  })
+
+  test("unknown events fall through the never branch", () => {
+    const event = { type: "nope" } as unknown as DeskEvent
+    expect(reduceDesk(loginOnly, event)).toBe(event)
   })
 })

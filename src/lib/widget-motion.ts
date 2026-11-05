@@ -24,12 +24,63 @@ export const AUTH_SELECTORS = AUTH_WIDGET_IDS.map(
 export const STAGE = { w: 1280, h: 800 } as const
 export const OFF = 480
 
-/** Auth family slots on the fixed 1280×800 camera. */
+/**
+ * `preserveAspectRatio="xMidYMid slice"` crops the 16:10 stage on other
+ * frames. 16:9 crops top/bottom; 4:3 and 5:4 crop the sides. The auth widget
+ * must sit inside the intersection, inset so it is an object on the wood.
+ */
+export const SLICE_ASPECTS = [16 / 9, 4 / 3, 5 / 4] as const
+export const SLICE_MARGIN = 20
+
+export function sliceVisibleRect(aspect: number) {
+  const stageAspect = STAGE.w / STAGE.h
+  if (aspect > stageAspect) {
+    const h = STAGE.w / aspect
+    const crop = (STAGE.h - h) / 2
+    return { x: 0, y: crop, w: STAGE.w, h }
+  }
+  const w = STAGE.h * aspect
+  const crop = (STAGE.w - w) / 2
+  return { x: crop, y: 0, w, h: STAGE.h }
+}
+
+export function sliceSafeRect(
+  aspects: readonly number[] = SLICE_ASPECTS,
+  margin = SLICE_MARGIN
+) {
+  let left = 0
+  let top = 0
+  let right: number = STAGE.w
+  let bottom: number = STAGE.h
+  for (const aspect of aspects) {
+    const rect = sliceVisibleRect(aspect)
+    left = Math.max(left, rect.x)
+    top = Math.max(top, rect.y)
+    right = Math.min(right, rect.x + rect.w)
+    bottom = Math.min(bottom, rect.y + rect.h)
+  }
+  return {
+    x: left + margin,
+    y: top + margin,
+    right: right - margin,
+    bottom: bottom - margin,
+  }
+}
+
+/** Content slots. Dialog scale origin is the slot center; the piece stays here. */
+export const CONTENT_SLOTS = {
+  category: { x: 216, y: 416 },
+  subs: { x: 1040, y: 248 },
+  charges: { x: 640, y: 608 },
+  compose: { x: 320, y: 168 },
+} as const satisfies Record<ContentWidgetId, { x: number; y: number }>
+
+/** On the wood, inside the slice-safe inset. Not flush to the viewport corner. */
 export const AUTH_SLOTS = {
-  github: { x: 1116, y: 752 },
+  github: { x: 924, y: 656 },
 } as const satisfies Record<AuthWidgetId, { x: number; y: number }>
 
-export const AUTH_GITHUB_FACE = { w: 148, h: 36 } as const
+export const AUTH_GITHUB_FACE = { w: 176, h: 48 } as const
 
 /** Per-auth-widget off-canvas. Must clear the 800h camera. */
 export const AUTH_OUT = {
@@ -38,6 +89,34 @@ export const AUTH_OUT = {
   AuthWidgetId,
   { x: number; y: number; rotate: number }
 >
+
+/** Auth family animated by enter/exit. Not corner chrome. */
+export const AUTH_WIDGETS = AUTH_WIDGET_IDS.map((id) => ({
+  id,
+  selector: `#${WIDGET_SCENE_IDS[id]}`,
+  slot: AUTH_SLOTS[id],
+  out: AUTH_OUT[id],
+}))
+
+export const EXPAND_DIALOG = {
+  duration: 0.42,
+  ease: "power2.out",
+  fromScale: 0.92,
+  fromY: 10,
+  toScale: 1,
+  toY: 0,
+} as const
+
+export const EXPAND_SOURCE = {
+  duration: 0.28,
+  ease: "power2.out",
+  opacity: 0.4,
+} as const
+
+export const COLLAPSE_MOTION = {
+  duration: 0.32,
+  ease: "power2.in",
+} as const
 
 export const FROM = {
   "#widget-category": { x: -OFF, y: -80 },
@@ -82,19 +161,13 @@ function lockStage(lock: boolean) {
   stage.style.pointerEvents = lock ? "none" : "auto"
 }
 
-function bringToFront(id: string) {
-  const node = document.getElementById(id)
-  const slot = node?.parentElement
-  slot?.parentElement?.appendChild(slot)
-}
-
 export function setWidgetState(id: string, state: WidgetFourState) {
   const sel = id.startsWith("#") ? id : `#${id}`
   const node = document.querySelector(sel)
   if (node instanceof Element) {
     node.setAttribute("data-state", state)
   }
-  const dur = reduceMotion() ? 0.08 : (FOUR_DUR[state] ?? 0.2)
+  const dur = reduceMotion() ? 0.08 : FOUR_DUR[state]
   return gsap.to(sel, {
     ...WIDGET_FOUR[state],
     duration: dur,
@@ -103,13 +176,17 @@ export function setWidgetState(id: string, state: WidgetFourState) {
   })
 }
 
-function authSelector(id: AuthWidgetId) {
-  return `#${WIDGET_SCENE_IDS[id]}`
+function parkDialog() {
+  gsap.set("#desk-dialog", {
+    autoAlpha: 0,
+    scale: EXPAND_DIALOG.fromScale,
+    y: EXPAND_DIALOG.fromY,
+  })
 }
 
 export function poseLoginOnly() {
-  for (const id of AUTH_WIDGET_IDS) {
-    gsap.set(authSelector(id), {
+  for (const widget of AUTH_WIDGETS) {
+    gsap.set(widget.selector, {
       autoAlpha: 1,
       x: 0,
       y: 0,
@@ -124,16 +201,18 @@ export function poseLoginOnly() {
     rotate: 0,
     scale: 1,
   })
+  parkDialog()
 }
 
 export function poseRefreshStart() {
-  for (const id of AUTH_WIDGET_IDS) {
-    gsap.set(authSelector(id), {
+  for (const widget of AUTH_WIDGETS) {
+    gsap.set(widget.selector, {
       autoAlpha: 0,
       x: 0,
-      y: AUTH_OUT[id].y,
+      y: widget.out.y,
     })
   }
+  parkDialog()
 }
 
 export function playEnterAfterLogin(onDone: () => void) {
@@ -147,11 +226,11 @@ export function playEnterAfterLogin(onDone: () => void) {
   })
 
   tl.addLabel("loginOut")
-  for (const id of AUTH_WIDGET_IDS) {
+  for (const widget of AUTH_WIDGETS) {
     tl.to(
-      authSelector(id),
+      widget.selector,
       {
-        ...AUTH_OUT[id],
+        ...widget.out,
         autoAlpha: 1,
         duration: 0.65,
         ease: "power1.out",
@@ -159,13 +238,13 @@ export function playEnterAfterLogin(onDone: () => void) {
       "loginOut"
     )
   }
-  for (const id of AUTH_WIDGET_IDS) {
+  for (const widget of AUTH_WIDGETS) {
     tl.set(
-      authSelector(id),
+      widget.selector,
       {
         autoAlpha: 0,
         x: 0,
-        y: AUTH_OUT[id].y,
+        y: widget.out.y,
         rotate: 0,
       },
       "loginOut+=0.65"
@@ -246,7 +325,10 @@ export function playEnterRespectingMotion(
     : playEnterLoggedInRefresh(onDone)
 }
 
-export function playExit(heldId: string | null, onDone: () => void) {
+export function playExit(
+  expandedId: ContentWidgetId | null,
+  onDone: () => void
+) {
   lockStage(true)
   const tl = gsap.timeline({
     defaults: { ease: "power2.inOut" },
@@ -256,11 +338,8 @@ export function playExit(heldId: string | null, onDone: () => void) {
     },
   })
 
-  if (heldId) {
-    tl.add(setWidgetState(heldId, "idle"), 0)
-  }
-
-  tl.addLabel("flyOut", heldId ? "+=0.05" : 0)
+  if (expandedId) tl.add(collapseExpanded(expandedId))
+  tl.addLabel("flyOut")
   CONTENT_SELECTORS.forEach((sel, i) => {
     const to = FROM[sel]
     tl.to(
@@ -279,22 +358,20 @@ export function playExit(heldId: string | null, onDone: () => void) {
   tl.set(CONTENT_SELECTORS, { autoAlpha: 0 })
 
   tl.addLabel("loginIn", "flyOut+=0.4")
-  for (const id of AUTH_WIDGET_IDS) {
-    const sel = authSelector(id)
-    const out = AUTH_OUT[id]
+  for (const widget of AUTH_WIDGETS) {
     tl.set(
-      sel,
+      widget.selector,
       {
         autoAlpha: 1,
-        x: out.x,
-        y: out.y,
+        x: widget.out.x,
+        y: widget.out.y,
         rotate: -6,
         scale: 1,
       },
       "loginIn"
     )
     tl.to(
-      sel,
+      widget.selector,
       {
         x: 0,
         y: 0,
@@ -309,48 +386,89 @@ export function playExit(heldId: string | null, onDone: () => void) {
   return skipIfReduce(tl)
 }
 
-export function playPickUp(
+function dialogOrigin(id: ContentWidgetId) {
+  const slot = CONTENT_SLOTS[id]
+  return `${slot.x} ${slot.y}`
+}
+
+/** Dialog enters from the source slot center. The compact SVG stays in its slot. */
+export function expandWidget(
   id: ContentWidgetId,
   previous: ContentWidgetId | null
 ) {
-  const sel = `#${WIDGET_SCENE_IDS[id]}`
-  const tl = gsap.timeline({ defaults: { ease: "power2.inOut" } })
+  const source = `#${WIDGET_SCENE_IDS[id]}`
+  const origin = dialogOrigin(id)
+  const tl = gsap.timeline()
   if (previous && previous !== id) {
-    tl.add(setWidgetState(WIDGET_SCENE_IDS[previous], "idle"))
-  }
-  tl.add(() => {
-    bringToFront(WIDGET_SCENE_IDS[id])
-  })
-  tl.add(setWidgetState(WIDGET_SCENE_IDS[id], "held"))
-  CONTENT_SELECTORS.forEach((other) => {
-    if (other === sel) {
-      tl.to(other, { opacity: 1, duration: 0.2 }, "<")
-    } else {
-      tl.to(other, { opacity: 0.72, duration: 0.2 }, "<")
-    }
-  })
-  // #prop-pen is the motion node; slot translate lives on #prop-pen-slot.
-  if (id === "compose") {
     tl.to(
-      "#prop-pen",
-      { y: 4, rotate: -4, duration: 0.21, overwrite: "auto" },
-      0
-    )
-  } else {
-    tl.to(
-      "#prop-pen",
-      { y: 0, rotate: 0, duration: 0.21, overwrite: "auto" },
+      `#${WIDGET_SCENE_IDS[previous]}`,
+      {
+        opacity: 1,
+        duration: COLLAPSE_MOTION.duration,
+        ease: COLLAPSE_MOTION.ease,
+        overwrite: "auto",
+      },
       0
     )
   }
+  tl.to(
+    source,
+    {
+      opacity: EXPAND_SOURCE.opacity,
+      duration: EXPAND_SOURCE.duration,
+      ease: EXPAND_SOURCE.ease,
+      overwrite: "auto",
+    },
+    0
+  )
+  tl.fromTo(
+    "#desk-dialog",
+    {
+      svgOrigin: origin,
+      scale: EXPAND_DIALOG.fromScale,
+      y: EXPAND_DIALOG.fromY,
+      autoAlpha: previous ? 1 : 0,
+    },
+    {
+      svgOrigin: origin,
+      scale: EXPAND_DIALOG.toScale,
+      y: EXPAND_DIALOG.toY,
+      autoAlpha: 1,
+      duration: EXPAND_DIALOG.duration,
+      ease: EXPAND_DIALOG.ease,
+      overwrite: "auto",
+    },
+    0
+  )
   return skipIfReduce(tl)
 }
 
-export function playPutDown(id: ContentWidgetId) {
-  const tl = gsap.timeline({ defaults: { ease: "power2.inOut" } })
-  tl.add(setWidgetState(WIDGET_SCENE_IDS[id], "idle"))
-  tl.to(CONTENT_SELECTORS, { opacity: 1, duration: 0.2 }, 0)
-  tl.to("#prop-pen", { y: 0, rotate: 0, duration: 0.21, overwrite: "auto" }, 0)
+export function collapseExpanded(id: ContentWidgetId) {
+  const origin = dialogOrigin(id)
+  const tl = gsap.timeline()
+  tl.to(
+    "#desk-dialog",
+    {
+      svgOrigin: origin,
+      scale: EXPAND_DIALOG.fromScale,
+      y: EXPAND_DIALOG.fromY,
+      autoAlpha: 0,
+      duration: COLLAPSE_MOTION.duration,
+      ease: COLLAPSE_MOTION.ease,
+      overwrite: "auto",
+    },
+    0
+  )
+  tl.to(
+    `#${WIDGET_SCENE_IDS[id]}`,
+    {
+      opacity: 1,
+      duration: COLLAPSE_MOTION.duration,
+      ease: COLLAPSE_MOTION.ease,
+      overwrite: "auto",
+    },
+    0
+  )
   return skipIfReduce(tl)
 }
 

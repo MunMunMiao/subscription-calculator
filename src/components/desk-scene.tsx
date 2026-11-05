@@ -57,11 +57,11 @@ function buildWood() {
 
 const WOOD_MARKS = buildWood()
 
-function Heart({ fill = "#e27898" }: { fill?: string }) {
+function Heart() {
   return (
     <path
       d="M0,-8 C-6,-18 -22,-8 -14,4 C-8,12 0,18 0,18 C0,18 8,12 14,4 C22,-8 6,-18 0,-8 Z"
-      fill={fill}
+      fill="#e27898"
       stroke={INK}
       strokeWidth="2.2"
       strokeLinejoin="round"

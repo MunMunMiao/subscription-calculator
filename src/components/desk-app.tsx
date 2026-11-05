@@ -1,15 +1,15 @@
 "use client"
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { useReducer, useRef, useState, type FormEvent } from "react"
+import { useReducer, useRef, useState } from "react"
 import { toast } from "sonner"
 
+import { DeskDialogMount } from "@/components/desk-dialog"
 import { DeskScene } from "@/components/desk-scene"
 import {
   AuthLayer,
   CategoryWidget,
   ChargesWidget,
-  ComposeHeldInk,
   ComposeWidget,
   DeskInk,
   SubsWidget,
@@ -42,11 +42,11 @@ import {
 import {
   JUST_AUTHED_KEY,
   bindWidgetStickers,
+  collapseExpanded,
+  expandWidget,
   playAmbient,
   playEnterRespectingMotion,
   playExit,
-  playPickUp,
-  playPutDown,
   poseLoginOnly,
   poseRefreshStart,
 } from "@/lib/widget-motion"
@@ -88,7 +88,24 @@ const EMPTY_FORM: FormValues = {
   status: "active",
 }
 
-function recordToForm(item: SubscriptionRecord): FormValues {
+export function readJustAuthed() {
+  try {
+    return sessionStorage.getItem(JUST_AUTHED_KEY) === "1"
+  } catch {
+    return false
+  }
+}
+
+export function requireItem<T extends { id: string }>(
+  items: readonly T[],
+  id: string
+): T {
+  const item = items.find((row) => row.id === id)
+  if (!item) throw new Error(`missing item ${id}`)
+  return item
+}
+
+export function recordToForm(item: SubscriptionRecord): FormValues {
   return {
     name: item.name,
     amount: centsToAmount(item.amountCents),
@@ -107,12 +124,11 @@ export function DeskApp({ user }: { user: DeskUser }) {
   const rootRef = useRef<HTMLDivElement>(null)
   const queryClient = useQueryClient()
   const activeUser = user
-  const [desk, dispatch] = useReducer(
-    reduceDesk,
-    Boolean(activeUser),
-    (hasUser) => bootDesk({ user: hasUser, fromLogin: false })
+  const [desk, dispatch] = useReducer(reduceDesk, activeUser, (user) =>
+    bootDesk({ user: Boolean(user), fromLogin: readJustAuthed() })
   )
-  const heldRef = useRef<ContentWidgetId | null>(null)
+  const expandedRef = useRef<ContentWidgetId | null>(null)
+  const [painted, setPainted] = useState<ContentWidgetId | null>(null)
   const [editing, setEditing] = useState<SubscriptionRecord | undefined>()
   const [form, setForm] = useState<FormValues>(EMPTY_FORM)
   const [now] = useState(() => new Date())
@@ -144,7 +160,7 @@ export function DeskApp({ user }: { user: DeskUser }) {
         toast.success("已记下")
         setEditing(undefined)
         setForm(EMPTY_FORM)
-        dispatch({ type: "put-down" })
+        dispatch({ type: "collapse" })
         await invalidate()
       },
       onError: (error) => toast.error(error.message),
@@ -157,7 +173,7 @@ export function DeskApp({ user }: { user: DeskUser }) {
         toast.success("已更新")
         setEditing(undefined)
         setForm(EMPTY_FORM)
-        dispatch({ type: "put-down" })
+        dispatch({ type: "collapse" })
         await invalidate()
       },
       onError: (error) => toast.error(error.message),
@@ -183,14 +199,14 @@ export function DeskApp({ user }: { user: DeskUser }) {
         rootRef.current!,
         () => rootRef.current?.dataset.locked === "true",
         () => {
-          const held = rootRef.current?.dataset.held
+          const expanded = rootRef.current?.dataset.expanded
           if (
-            held === "category" ||
-            held === "subs" ||
-            held === "charges" ||
-            held === "compose"
+            expanded === "category" ||
+            expanded === "subs" ||
+            expanded === "charges" ||
+            expanded === "compose"
           ) {
-            return held
+            return expanded
           }
           return null
         }
@@ -202,10 +218,8 @@ export function DeskApp({ user }: { user: DeskUser }) {
   useGSAP(
     () => {
       if (desk.phase !== "enter") return
-      const fromLogin =
-        desk.fromLogin || sessionStorage.getItem(JUST_AUTHED_KEY) === "1"
       sessionStorage.removeItem(JUST_AUTHED_KEY)
-      playEnterRespectingMotion(fromLogin ? "login" : "refresh", () => {
+      playEnterRespectingMotion(desk.fromLogin ? "login" : "refresh", () => {
         dispatch({ type: "enter-done" })
       })
     },
@@ -215,10 +229,14 @@ export function DeskApp({ user }: { user: DeskUser }) {
   useGSAP(
     () => {
       if (desk.phase !== "exit") return
-      playExit(heldRef.current ? `widget-${heldRef.current}` : null, () => {
-        void authClient.signOut().finally(() => {
-          window.location.assign("/")
-        })
+      playExit(expandedRef.current, () => {
+        void authClient.signOut().finally(
+          /* v8 ignore start -- assigning location reloads the browser and tears the runner down */
+          () => {
+            window.location.assign("/")
+          }
+          /* v8 ignore stop */
+        )
       })
     },
     { scope: rootRef, dependencies: [desk.phase], revertOnUpdate: false }
@@ -226,17 +244,26 @@ export function DeskApp({ user }: { user: DeskUser }) {
 
   useGSAP(
     () => {
-      if (desk.phase !== "desk" && desk.phase !== "held") return
-      const prev = heldRef.current
-      const next = desk.held
+      if (desk.phase !== "desk" && desk.phase !== "expanded") return
+      const prev = expandedRef.current
+      const next = desk.expanded
       if (prev === next) return
-      if (next) playPickUp(next, prev)
-      else if (prev) playPutDown(prev)
-      heldRef.current = next
+      if (next) {
+        setPainted(next)
+        expandWidget(next, prev)
+      } else {
+        collapseExpanded(prev as ContentWidgetId).eventCallback(
+          "onComplete",
+          () => {
+            setPainted(null)
+          }
+        )
+      }
+      expandedRef.current = next
     },
     {
       scope: rootRef,
-      dependencies: [desk.phase, desk.held],
+      dependencies: [desk.phase, desk.expanded],
       revertOnUpdate: false,
     }
   )
@@ -253,22 +280,45 @@ export function DeskApp({ user }: { user: DeskUser }) {
     dispatch({ type: "logout" })
   }
 
-  function pick(id: ContentWidgetId) {
-    dispatch({ type: "pick", id })
+  function expand(id: ContentWidgetId) {
+    dispatch({ type: "expand", id })
   }
 
-  function putDown() {
-    dispatch({ type: "put-down" })
+  function collapse() {
+    dispatch({ type: "collapse" })
   }
 
   function openEdit(item: SubscriptionRecord) {
     setEditing(item)
     setForm(recordToForm(item))
-    pick("compose")
+    expand("compose")
   }
 
-  function submitForm(event?: FormEvent) {
-    event?.preventDefault()
+  function changeCategory(id: string, category: Category) {
+    const item = requireItem(items, id)
+    if (item.category === category) return
+    if (preview) {
+      setLocalItems((current) =>
+        current.map((row) => (row.id === id ? { ...row, category } : row))
+      )
+      return
+    }
+    updateMutation.mutate({
+      id: item.id,
+      name: item.name,
+      amount: centsToAmount(item.amountCents),
+      currency: item.currency,
+      category,
+      notes: item.notes ?? null,
+      type: item.type,
+      interval: item.interval,
+      intervalDays: item.intervalDays,
+      chargeDate: item.chargeDate,
+      status: item.status,
+    })
+  }
+
+  function submitForm() {
     const payload = {
       name: form.name.trim() || "新订阅",
       amount: form.amount,
@@ -306,7 +356,7 @@ export function DeskApp({ user }: { user: DeskUser }) {
       toast.success(editing ? "已更新" : "已记下")
       setEditing(undefined)
       setForm(EMPTY_FORM)
-      dispatch({ type: "put-down" })
+      dispatch({ type: "collapse" })
       return
     }
     if (editing) {
@@ -316,11 +366,12 @@ export function DeskApp({ user }: { user: DeskUser }) {
     createMutation.mutate(payload)
   }
 
-  const onDesk = desk.phase === "desk" || desk.phase === "held"
+  const onDesk = desk.phase === "desk" || desk.phase === "expanded"
   const summary = formatMonthlyBanner(
     totals?.monthlyRecurring ?? 0,
     activeCurrency
   )
+  const dialogId = desk.expanded ?? painted
 
   return (
     <div
@@ -329,27 +380,37 @@ export function DeskApp({ user }: { user: DeskUser }) {
       data-testid="desk-root"
       data-phase={desk.phase}
       data-from={desk.fromLogin ? "login" : "session"}
-      data-held={desk.held ?? ""}
+      data-expanded={desk.expanded ?? ""}
       data-locked={desk.locked ? "true" : "false"}
     >
-      <DeskScene onDeskClick={putDown}>
+      <DeskScene onDeskClick={collapse}>
         <AuthLayer onLogin={login} />
-        <CategoryWidget
-          held={desk.held === "category"}
-          onPick={() => pick("category")}
-          items={items}
+        <CategoryWidget onPick={() => expand("category")} items={items} />
+        <SubsWidget onPick={() => expand("subs")} items={items} />
+        <ChargesWidget onPick={() => expand("charges")} charges={charges} />
+        <ComposeWidget
+          onPick={() => expand("compose")}
+          idleLine={form.name.trim() || EMPTY_INK.compose}
         />
-        <SubsWidget
-          held={desk.held === "subs"}
-          onPick={() => pick("subs")}
+        <DeskInk
+          visible={onDesk}
+          summary={summary}
+          userName={activeUser?.name}
+          onLogout={logout}
+        />
+        <DeskDialogMount
+          widget={dialogId}
           items={items}
+          charges={charges}
+          form={form}
+          editing={Boolean(editing)}
+          submitting={createMutation.isPending || updateMutation.isPending}
+          onClose={collapse}
           onEdit={(id) => {
-            const item = items.find((row) => row.id === id)
-            if (item) openEdit(item)
+            openEdit(requireItem(items, id))
           }}
           onDelete={(id) => {
-            const item = items.find((row) => row.id === id)
-            if (!item) return
+            const item = requireItem(items, id)
             if (!window.confirm(`删除「${item.name}」？`)) return
             if (preview) {
               setLocalItems((current) =>
@@ -360,39 +421,9 @@ export function DeskApp({ user }: { user: DeskUser }) {
             }
             removeMutation.mutate({ id: item.id })
           }}
-        />
-        <ChargesWidget
-          held={desk.held === "charges"}
-          onPick={() => pick("charges")}
-          charges={charges}
-        />
-        <ComposeWidget
-          held={desk.held === "compose"}
-          onPick={() => pick("compose")}
-          idleLine={form.name.trim() || EMPTY_INK.compose}
-        >
-          {desk.held === "compose" ? (
-            <ComposeHeldInk
-              form={form}
-              editing={Boolean(editing)}
-              submitting={createMutation.isPending || updateMutation.isPending}
-              onChange={(patch) =>
-                setForm((current) => ({ ...current, ...patch }))
-              }
-              onSubmit={() => submitForm()}
-              onCancel={() => {
-                setEditing(undefined)
-                setForm(EMPTY_FORM)
-                dispatch({ type: "put-down" })
-              }}
-            />
-          ) : null}
-        </ComposeWidget>
-        <DeskInk
-          visible={onDesk}
-          summary={summary}
-          userName={activeUser?.name}
-          onLogout={logout}
+          onCategory={changeCategory}
+          onChange={(patch) => setForm((current) => ({ ...current, ...patch }))}
+          onSubmit={() => submitForm()}
         />
       </DeskScene>
     </div>

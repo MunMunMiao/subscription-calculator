@@ -6,12 +6,12 @@
 - [手帐 UI Widget 贴纸 v2](https://cursor.com/canvas/store-ca500a49-1eed-4ab7-8196-83b91a8be5cd/cfcda443-ab93-4e33-bdce-4765e55443fb)
 
 **舞台**：现有 DeskScene SVG（木桌 + 道具线稿），禁止换皮 / 新 scene-graph / 第二间房。  
-**相机（MunMun 锁 · 永不改）**：`#stage` viewBox `0 0 1280 800` **永远固定**。**HARD BAN**：永不 transform `#stage`（禁 scale / translate / zoom / tilt / 改 viewBox）。GSAP 不得 tween `#stage`；`lockStage` 只改 `pointer-events`。禁切页 / 禁第二登录世界 / 禁相机跟踪。login-only 与 desk 同一木桌取景。enter = 物件飞入画框，相机不动。expanded dialog **叠在同一相机上**，不跟随 Widget（轨仍等 UI 贴纸，本分支不实现）。  
-**绑定**：时间轴绑场景态 `login-only | enter | desk | held(widgetId) | exit`，不绑路由。  
+**相机（MunMun 锁 · 永不改）**：`#stage` viewBox `0 0 1280 800` **永远固定**。**HARD BAN**：永不 transform `#stage`（禁 scale / translate / zoom / tilt / 改 viewBox）。GSAP 不得 tween `#stage`；`lockStage` 只改 `pointer-events`。禁切页 / 禁第二登录世界 / 禁相机跟踪。login-only 与 desk 同一木桌取景。enter = 物件飞入画框，相机不动。expanded dialog **叠在同一相机上**，不跟随 Widget，不改 viewBox。  
+**绑定**：时间轴绑场景态 `login-only | enter | desk | expanded(widgetId) | exit`，不绑路由。  
 **login-only**：同一木桌取景。空木桌 + **仅 auth Widget**（本版只有一块 `widget-auth-github`「GitHub 登录」）。无内容 Widget、无杯笔植物胶带。禁把登录做成一次性 `#chrome-layer` / `#login-control` 角标。  
 **Auth**：每个登录源自己一块桌上 Widget。**禁「更多登录」聚合 dialog**、禁 max-3 溢出桶。以后加源 = 桌上再放一块，不是收进一个入口。  
 **禁止**：整页 opacity fade；开本翻封面当主进场；切签换墨迹旧模型；同时两个 expanded；`widget-overview`；`|Δ|≤160` 微移后隐身冒充飞入/飞出；破损叠纸 / 把 HTML 纸裂在 compact 美术上冒充展开。  
-**双态（产品重锁 · iOS-like）**：桌上 **compact** = 异质摘要脸；点开 → **expanded dialog**（可操作详情/表单）；关 / 点木桌 → compact。旧闸「held = 只抬同一 SVG；禁第二脸」**作废**。展开必须是有意的第二显示态，等 UI 贴纸后再做；本分支 **暂停** P0-2「撕光 FO / 只抬同一 SVG」held UX，不把它当正式拿起。  
+**双态**：桌上 **compact** = 异质 SVG 摘要脸，留在原槽。点开 → **独立** `#desk-dialog` 纸卡（HTML 只允许在这张卡里）。关 / 点木桌 / 再点同一件 → compact。旧「held = 原地把便签变成表单」作废。Auth 只有 compact，点击走 OAuth，不展开。  
 **手感**：场景轨 400–700ms · soft ease（`power2.inOut` / `power1.out`）· 吉卜力日常；描边轻、硬影无；接触影 `dy≤3` · `std≤1.6` · `opacity≤0.16`。
 
 **v1 作废**：`sealed | opening | closing | browse | compose` 五态本/页签机、`#book-cover` 翻合、tab-flip / ink-swap 主隐喻全部清掉。本文件即 MOTION 唯一源。
@@ -26,12 +26,12 @@ Auth Widget（SCENE ids；login-only 上场，enter 出画。本版 **仅一块*
 
 内容 Widget（SCENE ids）：
 
-| id                | 形态                  | 在场                 |
-| ----------------- | --------------------- | -------------------- |
-| `widget-category` | 色块贴板              | enter 后 · desk/held |
-| `widget-subs`     | 索引卡叠              | enter 后 · desk/held |
-| `widget-charges`  | 日程条 / 票根         | enter 后 · desk/held |
-| `widget-compose`  | 便签 + 笔（唯一纸感） | enter 后 · desk/held |
+| id                | 形态                  | 在场                     |
+| ----------------- | --------------------- | ------------------------ |
+| `widget-category` | 色块贴板              | enter 后 · desk/expanded |
+| `widget-subs`     | 索引卡叠              | enter 后 · desk/expanded |
+| `widget-charges`  | 日程条 / 票根         | enter 后 · desk/expanded |
+| `widget-compose`  | 便签 + 笔（唯一纸感） | enter 后 · desk/expanded |
 
 **无 `widget-overview`**：`desk` 全 idle = 总览。
 
@@ -42,9 +42,7 @@ Auth Widget（SCENE ids；login-only 上场，enter 出画。本版 **仅一块*
 
 ## 0. Widget 四态（idle / hover / act / held）
 
-适用：内容 Widget 四件；次要胶带仅前三态装饰反馈。`widget-auth-github` 在 login-only 用 idle/hover/act；无 held / 无 expand（等贴纸）。
-
-对齐贴纸页（待发 compact/expanded）：**idle/compact = 放下摘要**。展开 dialog **等贴纸**。旧「held = 只抬起」不作正式 UX。
+适用：内容 Widget 的 hover 贴纸（idle / hover / act）。`held` 只留在四态表里，**不是**场景态。点开内容件走 §4 的独立 dialog，compact 留在槽里变淡，不再把 `held` 抬起当成展开。`widget-auth-github` 在 login-only 用 idle/hover/act，不展开。
 
 | 态      | 含义            | tween（相对 slot 基线）                                    | 时长      |
 | ------- | --------------- | ---------------------------------------------------------- | --------- |
@@ -80,7 +78,7 @@ function setWidgetState(id, state) {
 }
 ```
 
-同时最多一个 `held`。换件：旧件先 put-down（回 idle 槽）再拿新件。desk 全 idle = 总览，无需单独总览件。
+同时最多一个 `expanded`。换件：上一张 dialog 收起，来源 compact 回到 opacity 1，再打开下一张。desk 全 idle = 总览，无需单独总览件。
 
 ---
 
@@ -115,7 +113,7 @@ const FROM = {
 }
 
 // login: fly UP until fully above y=0, then park
-const AUTH_OUT = { github: { x: 48, y: -840, rotate: -8 } } // slot y=752; -840 clears 800h camera
+const AUTH_OUT = { github: { x: 48, y: -840, rotate: -8 } } // slot y=656, face h=48; -840 still clears y=0
 
 function playEnterAfterLogin() {
   const tl = gsap.timeline({
@@ -231,10 +229,10 @@ Boot 分支：未登录 → `login-only`（光木桌 + auth Widget 家族，四�
 
 ## 3. `exit`（登出 · 不可打断）
 
-若当前 `held`：先 put-down → 四内容 **飞出画外**（镜像 `FROM`，`|Δ|≥420`，途中 `autoAlpha:1`）→ auth Widget 家族从 **画外**飞回 → `login-only` 空木桌。总长 ≈ 1.3–1.8s。
+若当前 `expanded`：先 `collapseExpanded`（320ms `power2.in`）→ 四内容 **飞出画外**（镜像 `FROM`，`|Δ|≥420`，途中 `autoAlpha:1`）→ auth Widget 家族从 **画外**飞回 → `login-only` 空木桌。总长 ≈ 1.3–1.8s。
 
 ```js
-function playExit(heldId /* string | null */) {
+function playExit(expandedId /* string | null */) {
   const tl = gsap.timeline({
     defaults: { ease: "power2.inOut" },
     onStart: () => lockInput(true),
@@ -244,13 +242,13 @@ function playExit(heldId /* string | null */) {
     },
   })
 
-  // 0) put-down held first if any
-  if (heldId) {
-    tl.add(setWidgetState(heldId, "idle"), 0)
+  // 0) collapse the open dialog first (320ms power2.in)
+  if (expandedId) {
+    tl.add(collapseExpanded(expandedId), 0)
   }
 
   // 1) four content fly OUT to true off-canvas (same vectors as enter FROM)
-  tl.addLabel("flyOut", heldId ? "+=0.05" : 0)
+  tl.addLabel("flyOut", expandedId ? "+=0.05" : 0)
   CONTENT.forEach((sel, i) => {
     const to = FROM[sel]
     tl.to(
@@ -298,57 +296,39 @@ function playExit(heldId /* string | null */) {
 
 ---
 
-## 4. compact / expanded（桌上双态 · **等 UI 贴纸，本分支不实现展开**）
+## 4. compact / expanded（桌上双态 · 已实现）
 
-产品重锁：compact 摘要脸 ↔ expanded 全屏/对话框操作态（iOS-like）。  
-**暂停**：P0-2「held = 只抬同一 SVG；禁任何第二脸 / 撕光 FO」。  
-**仍禁**：裂开的 HTML 纸叠在 compact 线稿上。展开必须是独立 dialog 呈现，等贴纸。
+compact 摘要脸留在槽里。点开后 `#desk-dialog` 是另一张同相机纸卡，不把表单画进 compact SVG。
 
-工程现状（#8 可继续合进预览、**不要当正式 held UX 验收**）：状态机仍叫 `held`，只作占位点击；compact 摘要（P1-6）才是本版桌上脸。
-
-- **compact**：`desk` 全 idle = 总览；四件摘要墨迹；顶栏仅 `$X.XX / 月`。
-- **expanded**：点 Widget → 对话框式详情/表单（**未做，等贴纸**）。关 / 点木桌 → compact。Dialog **叠在同一相机上**，不跟 Widget 飞、不改 viewBox。
-- **同时只一个 expanded**。Auth 家族不在 desk 态 held。
-- **命中**：木纹 / 污渍 / 植物等装饰必须 `pointer-events: none`（或等价）。
+- **compact**：`desk` 且 `expanded === null` = 总览。四件摘要；顶栏仅 `$X.XX / 月`。无 `foreignObject`。
+- **expanded**：点内容 Widget → `expandWidget`。关（`#dialog-close`）/ 点 `#desk-hit` / 再点同一件 → `collapseExpanded`。点另一件仍只展开一个。
+- **Auth**：compact-only。`#widget-auth-github` 整块（含「GitHub 登录」）落在切片安全区，不当角标贴在视口边上。
+- **相机**：全程不 transform `#stage`。
+- **命中**：木纹 / 污渍 / 植物 `pointer-events: none`。Dialog 组默认不吃事件，纸卡内部才接收点击。
 
 ```js
-let heldId = null
+const EXPAND_DIALOG = {
+  duration: 0.42,
+  ease: "power2.out",
+  fromScale: 0.92,
+  fromY: 10,
+  toScale: 1,
+  toY: 0,
+}
+const EXPAND_SOURCE = { duration: 0.28, ease: "power2.out", opacity: 0.4 }
+const COLLAPSE_MOTION = { duration: 0.32, ease: "power2.in" }
 
-function pickUp(id) {
-  if (getScene() !== "desk" && getScene() !== "held") return
-  const tl = gsap.timeline({ defaults: { ease: "power2.inOut" } })
-
-  if (heldId && heldId !== id) {
-    // put-down old first
-    tl.add(setWidgetState(heldId, "idle"))
-  }
-
-  tl.add(() => {
-    heldId = id
-    setScene("held", id)
-    bringToFront(id) // z-order
-  })
-  tl.add(setWidgetState(id, "held"))
-  return tl
+function expandWidget(id, previous) {
+  // source stays in its slot: opacity → 0.4 in 280ms. No x/y lift.
+  // #desk-dialog from slot center (svgOrigin): scale 0.92→1, y 10→0, 420ms power2.out
 }
 
-function putDown() {
-  if (!heldId) return null
-  const id = heldId
-  const tl = gsap.timeline({ defaults: { ease: "power2.inOut" } })
-  tl.add(setWidgetState(id, "idle")).add(() => {
-    heldId = null
-    setScene("desk") // 全 idle = 总览
-  })
-  return tl
+function collapseExpanded(id) {
+  // dialog scale/y back and autoAlpha 0, source opacity → 1, 320ms power2.in
 }
-
-// click empty desk → putDown()
-// click same held widget again → putDown()  // toggle
-// click another widget → pickUp(otherId)  // handles put-down internally
 ```
 
-展开对话脸（compose 表单、订阅列表操作等）**等 UI compact/expanded 贴纸后再做**。禁止把旧 FO 纸层当展开。
+切片：`preserveAspectRatio="xMidYMid slice"`。16:9 相对 16:10 上下各裁约 40px，所以 `y=752..788` 会缺一截。Auth 包围盒必须落在 16:9、4:3、5:4 可见区再内收 20px 的交集里，不能只判断 `x+w≤1280 && y+h≤800`。
 
 ---
 
@@ -414,7 +394,7 @@ function playEnterRespectingMotion(kind /* "login" | "refresh" */) {
 
 1. `enter`（登录成功 / 已登录刷新飞入）
 2. `exit`（登出：放下 → 出镜 → 登录回桌）
-3. `held` / put-down 拿放
+3. `expanded` 展开 / 收起（dialog 420ms，源件 280ms，收起 320ms）
 4. Widget 四态（hover / act）
 5. 次要胶带装饰四态
 6. 氛围呼吸
@@ -437,27 +417,23 @@ type Scene =
   | "login-only"
   | "enter"
   | "desk"
-  | "held"   // with heldWidgetId
+  | "expanded" // with expanded widget id
   | "exit";
 
-type ContentWidgetId =
-  | "widget-category"
-  | "widget-subs"
-  | "widget-charges"
-  | "widget-compose";
-type AuthWidgetId = "widget-auth-github"; // one widget per source; no 更多登录
+type ContentWidgetId = "category" | "subs" | "charges" | "compose";
+type AuthWidgetId = "github"; // scene id widget-auth-github; no 更多登录
 // NO widget-overview
 
-playEnterAfterLogin(): Timeline; // flies AUTH_SELECTORS off, then content FROM
-playEnterLoggedInRefresh(): Timeline; // no auth widgets on stage
-playExit(heldId: WidgetId | null): Timeline;
-pickUp(id: WidgetId): Timeline;
-putDown(): Timeline | null;
-setWidgetState(id: WidgetId | string, state: "idle" | "hover" | "act" | "held"): Timeline;
+playEnterAfterLogin(): Timeline; // flies AUTH_WIDGETS off, then content FROM
+playEnterLoggedInRefresh(): Timeline;
+playExit(expandedId: ContentWidgetId | null): Timeline; // collapse first
+expandWidget(id: ContentWidgetId, previous: ContentWidgetId | null): Timeline;
+collapseExpanded(id: ContentWidgetId): Timeline;
+setWidgetState(id: string, state: "idle" | "hover" | "act" | "held"): Timeline;
 ```
 
 过场中 `#stage` 可点层 `pointer-events: none`。  
-状态机：`login-only | enter | desk | held | exit`。  
+状态机：`login-only | enter | desk | expanded | exit`。  
 Boot：未登录 → `login-only`；已登录 → `enter`（refresh 轨）→ `desk`。
 
 旧 API 作废：`playOpening` / `playClosing` / `playTabFlip` / `enterCompose` / `exitCompose` / Scene `sealed|opening|closing|browse|compose`。

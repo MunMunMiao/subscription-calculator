@@ -7,9 +7,13 @@ export const E2E_PREVIEW_USER = {
   email: "e2e@local",
 } as const
 
+export const previewFlags = {
+  dev: Boolean(import.meta.env.DEV),
+  e2e: import.meta.env.VITE_TECHO_E2E === "1",
+}
+
 export function allowE2ePreview() {
-  const env = import.meta.env as { DEV?: boolean; VITE_TECHO_E2E?: string }
-  return env.DEV === true || env.VITE_TECHO_E2E === "1"
+  return previewFlags.dev || previewFlags.e2e
 }
 
 export function e2ePreviewUser(e2e: string | undefined) {

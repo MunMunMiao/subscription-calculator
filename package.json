@@ -19,8 +19,8 @@
     "lint": "oxlint",
     "fmt": "bun fmt --no-script",
     "check": "bun check --no-script",
-    "test": "bun test",
-    "test:e2e": "playwright test"
+    "test": "vitest run --coverage",
+    "test:e2e": "vitest run --coverage"
   },
   "trustedDependencies": [
     "esbuild",
@@ -69,10 +69,15 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@vitejs/plugin-react": "^6",
+    "@vitest/browser": "^5.1.0",
+    "@vitest/browser-playwright": "^5.1.0",
+    "@vitest/coverage-v8": "^5.1.0",
     "drizzle-kit": "^0.31.11",
     "oxlint": "^1.90.0",
     "typescript": "^6.0.2",
     "vite": "^8",
+    "vitest": "^5.1.0",
+    "vitest-browser-react": "^2.3.0",
     "wrangler": "^4.156.2"
   }
 }

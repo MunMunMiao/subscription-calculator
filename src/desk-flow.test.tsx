@@ -1,0 +1,745 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
+import { afterEach, describe, expect, test, vi } from "vitest"
+import { page, userEvent } from "vitest/browser"
+import { render } from "vitest-browser-react"
+
+import {
+  DeskApp,
+  readJustAuthed,
+  recordToForm,
+  requireItem,
+} from "@/components/desk-app"
+import { Toaster } from "@/components/ui/sonner"
+import { DeskDialogMount, type DialogForm } from "@/components/desk-dialog"
+import { DeskInk, renderAuthWidget } from "@/components/desk-widgets"
+import type { AuthWidgetId, ContentWidgetId } from "@/lib/widget-machine"
+import { JUST_AUTHED_KEY } from "@/lib/widget-motion"
+import { gsap } from "@/lib/gsap"
+import { e2ePreviewUser } from "@/lib/e2e-preview"
+import "@/styles.css"
+
+const gate = vi.hoisted(() => ({
+  fail: false,
+  delay: null as Promise<void> | null,
+  subs: [] as Array<Record<string, unknown>>,
+}))
+
+const auth = vi.hoisted(() => ({
+  signIn: vi.fn(async () => ({})),
+  signOut: vi.fn(() => new Promise<void>(() => {})),
+}))
+
+vi.mock("@/lib/auth-client", () => ({
+  authClient: {
+    signIn: { social: auth.signIn },
+    signOut: auth.signOut,
+  },
+}))
+
+vi.mock("@/orpc/client", () => ({
+  orpc: {
+    subscriptions: {
+      key: () => ["subscriptions"],
+      list: {
+        queryOptions: () => ({
+          queryKey: ["subscriptions", "list"],
+          queryFn: async () => gate.subs,
+        }),
+      },
+      create: {
+        mutationOptions: (
+          opts: {
+            onSuccess?: () => Promise<void> | void
+            onError?: (error: Error) => void
+          } = {}
+        ) => ({
+          ...opts,
+          mutationFn: async (input: unknown) => {
+            if (gate.delay) await gate.delay
+            if (gate.fail) throw new Error("boom")
+            return { id: "server-id", ...(input as object) }
+          },
+        }),
+      },
+      update: {
+        mutationOptions: (
+          opts: {
+            onSuccess?: () => Promise<void> | void
+            onError?: (error: Error) => void
+          } = {}
+        ) => ({
+          ...opts,
+          mutationFn: async (input: unknown) => {
+            if (gate.delay) await gate.delay
+            if (gate.fail) throw new Error("boom")
+            return { id: "server-id", ...(input as object) }
+          },
+        }),
+      },
+      remove: {
+        mutationOptions: (
+          opts: {
+            onSuccess?: () => Promise<void> | void
+            onError?: (error: Error) => void
+          } = {}
+        ) => ({
+          ...opts,
+          mutationFn: async () => {
+            if (gate.delay) await gate.delay
+            if (gate.fail) throw new Error("boom")
+            return { ok: true }
+          },
+        }),
+      },
+    },
+  },
+}))
+
+function providers(user: { name: string; email: string } | null) {
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  })
+  return (
+    <QueryClientProvider client={client}>
+      <DeskApp user={user} />
+      <Toaster />
+    </QueryClientProvider>
+  )
+}
+
+function control(node: unknown) {
+  return node as HTMLElement
+}
+
+function css(selector: string) {
+  const node = document.querySelector(selector)
+  if (!node) throw new Error(`missing ${selector}`)
+  return page.elementLocator(node)
+}
+
+function root() {
+  const node = document.querySelector("[data-testid='desk-root']")
+  if (!(node instanceof HTMLElement)) throw new Error("desk missing")
+  return node
+}
+
+async function waitPhase(phase: string) {
+  await expect
+    .poll(() => root().dataset.phase, { timeout: 6000, interval: 16 })
+    .toBe(phase)
+}
+
+function travel(selector: string) {
+  const tween = gsap.getTweensOf(selector).at(-1)
+  if (!tween?.parent) return 0
+  const parent = tween.parent
+  const time = parent.time()
+  parent.pause()
+  parent.time(tween.startTime())
+  const distance = Math.max(
+    Math.abs(Number(gsap.getProperty(selector, "x"))),
+    Math.abs(Number(gsap.getProperty(selector, "y")))
+  )
+  parent.time(time)
+  parent.resume()
+  return distance
+}
+
+async function expectAuthFullyVisible() {
+  await expect
+    .poll(() => {
+      const node = document.getElementById("widget-auth-github")
+      const box = node?.getBoundingClientRect()
+      const text = node?.querySelector("text")?.getBoundingClientRect()
+      if (!box || !text || box.width < 20 || text.width < 8) return false
+      return [box, text].every(
+        (rect) =>
+          rect.left >= -0.5 &&
+          rect.top >= -0.5 &&
+          rect.right <= window.innerWidth + 0.5 &&
+          rect.bottom <= window.innerHeight + 0.5
+      )
+    })
+    .toBe(true)
+}
+
+afterEach(async () => {
+  await page.viewport(1280, 800)
+  gsap.globalTimeline.clear()
+  sessionStorage.removeItem(JUST_AUTHED_KEY)
+  gate.fail = false
+  gate.delay = null
+  gate.subs = []
+  auth.signIn.mockClear()
+  auth.signOut.mockClear()
+})
+
+describe("helpers", () => {
+  test("session flag, record mapping, and missing items", () => {
+    sessionStorage.removeItem(JUST_AUTHED_KEY)
+    expect(readJustAuthed()).toBe(false)
+    sessionStorage.setItem(JUST_AUTHED_KEY, "1")
+    expect(readJustAuthed()).toBe(true)
+    const spy = vi
+      .spyOn(Storage.prototype, "getItem")
+      .mockImplementation(() => {
+        throw new Error("blocked")
+      })
+    expect(readJustAuthed()).toBe(false)
+    spy.mockRestore()
+    expect(requireItem([{ id: "a" }], "a").id).toBe("a")
+    expect(() => requireItem([{ id: "a" }], "b")).toThrow(/missing/)
+    expect(renderAuthWidget("nope" as AuthWidgetId, () => {})).toBe("nope")
+    expect(
+      recordToForm({
+        id: "1",
+        name: "域名",
+        amountCents: 250,
+        currency: "CNY",
+        category: "not-real",
+        notes: null,
+        type: "one_time",
+        interval: null,
+        intervalDays: null,
+        chargeDate: "2026-11-01",
+        status: "paused",
+      })
+    ).toMatchObject({
+      category: "other",
+      notes: "",
+      interval: "monthly",
+      intervalDays: 30,
+      amount: 2.5,
+    })
+    expect(
+      recordToForm({
+        id: "2",
+        name: "Netflix",
+        amountCents: 100,
+        currency: "USD",
+        category: "streaming",
+        notes: "家庭",
+        type: "recurring",
+        interval: "yearly",
+        intervalDays: 9,
+        chargeDate: "2026-11-01",
+        status: "active",
+      }).interval
+    ).toBe("yearly")
+  })
+})
+
+describe("PM desk path", () => {
+  test("login-only auth sits fully on the desk, then the machine runs", async () => {
+    const loggedOut = await render(providers(null))
+    await waitPhase("login-only")
+    const stage = document.getElementById("stage")
+    expect(stage?.getAttribute("viewBox")).toBe("0 0 1280 800")
+    expect(stage?.getAttribute("preserveAspectRatio")).toBe("xMidYMid slice")
+    expect(getComputedStyle(stage!).transform).toBe("none")
+    expect(document.getElementById("login-control")).toBeNull()
+    expect(document.getElementById("chrome-layer")).toBeNull()
+    expect(document.getElementById("widget-login")).toBeNull()
+    expect(document.body.textContent).not.toContain("更多登录")
+    expect(
+      document.getElementById("widget-auth-github")?.textContent
+    ).toContain("GitHub 登录")
+    for (const id of [
+      "widget-category",
+      "widget-subs",
+      "widget-charges",
+      "widget-compose",
+      "prop-cup",
+      "prop-pen",
+      "prop-plant",
+    ]) {
+      expect(getComputedStyle(document.getElementById(id)!).visibility).toBe(
+        "hidden"
+      )
+    }
+
+    await page.viewport(1600, 900)
+    await expectAuthFullyVisible()
+    await page.viewport(1024, 768)
+    await expectAuthFullyVisible()
+    await page.viewport(1000, 800)
+    await expectAuthFullyVisible()
+
+    await css("#widget-auth-github").click()
+    expect(auth.signIn).toHaveBeenCalledWith({
+      provider: "github",
+      callbackURL: "/",
+    })
+    expect(root().dataset.phase).toBe("login-only")
+    expect(sessionStorage.getItem(JUST_AUTHED_KEY)).toBe("1")
+    await loggedOut.unmount()
+
+    const entered = await render(providers(e2ePreviewUser("browse")))
+    expect(root().dataset.from).toBe("login")
+    await expect
+      .poll(() => gsap.getTweensOf("#widget-category").length, {
+        timeout: 2000,
+        interval: 10,
+      })
+      .toBeGreaterThan(0)
+    expect(travel("#widget-category")).toBeGreaterThanOrEqual(420)
+    expect(travel("#widget-auth-github")).toBeGreaterThanOrEqual(420)
+    expect(getComputedStyle(document.getElementById("stage")!).transform).toBe(
+      "none"
+    )
+    await waitPhase("desk")
+    expect(document.getElementById("stage")?.getAttribute("viewBox")).toBe(
+      "0 0 1280 800"
+    )
+    expect(document.getElementById("desk-ink-total")?.textContent).toMatch(
+      /[$¥]\d+\.\d{2} \/ 月/
+    )
+    expect(document.getElementById("desk-ink-total")?.textContent).not.toMatch(
+      /iCloud|年/
+    )
+    expect(document.getElementById("widget-category")?.textContent).toMatch(
+      /流媒体|软件|云服务/
+    )
+    expect(document.getElementById("widget-subs")?.textContent).toMatch(
+      /Netflix|GitHub/
+    )
+    expect(document.getElementById("widget-charges")?.textContent).toMatch(
+      /\d{2}\/\d{2}/
+    )
+    expect(document.getElementById("widget-compose")?.textContent).toContain(
+      "记一笔"
+    )
+    for (const id of [
+      "widget-category",
+      "widget-subs",
+      "widget-charges",
+      "widget-compose",
+    ]) {
+      expect(document.querySelector(`#${id} foreignObject`)).toBeNull()
+    }
+    const cup = document.getElementById("prop-cup")
+    const layer = document.getElementById("widget-layer")
+    expect(
+      cup &&
+        layer &&
+        Boolean(
+          cup.compareDocumentPosition(layer) & Node.DOCUMENT_POSITION_FOLLOWING
+        )
+    ).toBe(true)
+    expect(
+      document.getElementById("prop-pen-slot")?.getAttribute("transform")
+    ).toMatch(/translate\(\s*134\s+94\s*\)/)
+
+    await css("#widget-compose").click()
+    await waitPhase("expanded")
+    expect(root().dataset.expanded).toBe("compose")
+    await expect
+      .poll(() => gsap.getTweensOf("#desk-dialog").length)
+      .toBeGreaterThan(0)
+    const dialogTween = gsap.getTweensOf("#desk-dialog")[0]
+    expect(dialogTween?.duration()).toBeCloseTo(0.42)
+    expect(dialogTween?.vars.ease).toBe("power2.out")
+    expect(dialogTween?.vars.scale).toBe(1)
+    expect(dialogTween?.vars.y).toBe(0)
+    const dim = gsap
+      .getTweensOf("#widget-compose")
+      .find((tween) => tween.vars.opacity === 0.4)
+    expect(dim?.duration()).toBeCloseTo(0.28)
+    expect(dim?.vars.ease).toBe("power2.out")
+    expect(dim?.vars.x).toBeUndefined()
+    expect(dim?.vars.y).toBeUndefined()
+    expect(document.querySelector("#widget-compose foreignObject")).toBeNull()
+    expect(document.querySelector("#widget-compose form")).toBeNull()
+    expect(document.getElementById("widget-compose")?.textContent).toContain(
+      "记一笔"
+    )
+    const dialog = document.getElementById("desk-dialog")
+    expect(dialog?.querySelector("form")).toBeTruthy()
+    expect(document.getElementById("widget-compose")?.contains(dialog!)).toBe(
+      false
+    )
+    expect(getComputedStyle(document.getElementById("stage")!).transform).toBe(
+      "none"
+    )
+
+    await css("#dialog-close").click()
+    await waitPhase("desk")
+    await expect.poll(() => document.getElementById("compose-form")).toBeNull()
+    expect(root().dataset.expanded).toBe("")
+
+    await css("#widget-category").click()
+    await waitPhase("expanded")
+    document
+      .getElementById("desk-hit")
+      ?.dispatchEvent(new PointerEvent("pointerup", { bubbles: true }))
+    await waitPhase("desk")
+
+    await css("#widget-subs").click()
+    await waitPhase("expanded")
+    expect(document.querySelector("#widget-subs foreignObject")).toBeNull()
+    expect(document.getElementById("desk-dialog")?.textContent).toContain(
+      "Netflix"
+    )
+    const confirm = vi.spyOn(window, "confirm").mockReturnValue(false)
+    await page.getByRole("button", { name: "删除" }).first().click()
+    expect(document.getElementById("desk-dialog")?.textContent).toContain(
+      "Netflix"
+    )
+    confirm.mockReturnValue(true)
+    await page.getByRole("button", { name: "编辑" }).first().click()
+    await expect.poll(() => root().dataset.expanded).toBe("compose")
+    const name = document.querySelector(
+      "#compose-form input"
+    ) as HTMLInputElement
+    expect(name.value.length).toBeGreaterThan(0)
+    await css("#dialog-close").click()
+    await waitPhase("desk")
+
+    await css("#widget-charges").click()
+    await waitPhase("expanded")
+    expect(document.querySelector("#widget-charges foreignObject")).toBeNull()
+    expect(document.getElementById("desk-dialog")?.textContent).toMatch(
+      /\d{2}\/\d{2}/
+    )
+    await css("#dialog-close").click()
+    await waitPhase("desk")
+
+    await css("#widget-compose").click()
+    document
+      .getElementById("widget-compose")
+      ?.dispatchEvent(new PointerEvent("pointerup", { bubbles: true }))
+    await waitPhase("desk")
+
+    await css("#widget-category").click()
+    await css("#widget-subs").click()
+    await expect.poll(() => root().dataset.expanded).toBe("subs")
+    await css("#btn-logout").click()
+    await waitPhase("exit")
+    await expect
+      .poll(() => gsap.getTweensOf("#widget-category").length, {
+        timeout: 2000,
+      })
+      .toBeGreaterThan(0)
+    expect(travel("#widget-category")).toBeGreaterThanOrEqual(420)
+    expect(travel("#widget-auth-github")).toBeGreaterThanOrEqual(420)
+    expect(getComputedStyle(document.getElementById("stage")!).transform).toBe(
+      "none"
+    )
+    await expect
+      .poll(() => auth.signOut.mock.calls.length, { timeout: 6000 })
+      .toBeGreaterThan(0)
+    expect(getComputedStyle(document.getElementById("stage")!).transform).toBe(
+      "none"
+    )
+    await entered.unmount()
+  })
+
+  test("preview compose, category edit, and server mutations", async () => {
+    const view = await render(providers(e2ePreviewUser("desk")))
+    await waitPhase("desk")
+    await css("#widget-category").click()
+    const select = css("[aria-label='Netflix 分类']")
+    await userEvent.selectOptions(select, "software")
+    await userEvent.selectOptions(select, "software")
+    await css("#dialog-close").click()
+    await waitPhase("desk")
+
+    await css("#widget-compose").click()
+    const form = document.getElementById("compose-form") as HTMLFormElement
+    const fields = form.querySelectorAll("input, select, textarea")
+    const name = fields[0] as HTMLInputElement
+    await userEvent.fill(name, "   ")
+    const amount = form.querySelector(
+      "input[type='number']"
+    ) as HTMLInputElement
+    await userEvent.fill(amount, "12.5")
+    const selects = [...form.querySelectorAll("select")].map((node) =>
+      control(node)
+    )
+    await userEvent.selectOptions(selects[0]!, "CNY")
+    await userEvent.selectOptions(selects[1]!, "food")
+    await userEvent.selectOptions(selects[2]!, "one_time")
+    await userEvent.fill(
+      form.querySelector("input[type='date']") as HTMLInputElement,
+      "2026-12-01"
+    )
+    const status = [...form.querySelectorAll("select")].find((node) =>
+      [...node.options].some((option) => option.value === "paused")
+    )
+    await userEvent.selectOptions(control(status!), "paused")
+    const notes = form.querySelector("textarea") as HTMLTextAreaElement
+    await userEvent.fill(notes, "  午饭  ")
+    await userEvent.click(css("#compose-form button[type='submit']"))
+    await waitPhase("desk")
+    expect(document.getElementById("widget-category")?.textContent).toContain(
+      "软件 2"
+    )
+    await css("#widget-subs").click()
+    await expect
+      .poll(() => document.getElementById("desk-dialog")?.textContent ?? "")
+      .toContain("新订阅")
+    const created = [...document.querySelectorAll("#desk-dialog li")].find(
+      (node) => node.textContent?.includes("新订阅")
+    )
+    await userEvent.click(
+      page.elementLocator(created?.querySelector("button") as HTMLButtonElement)
+    )
+    await expect.poll(() => root().dataset.expanded).toBe("compose")
+    const editForm = document.getElementById("compose-form") as HTMLFormElement
+    await userEvent.fill(
+      editForm.querySelector("input") as HTMLInputElement,
+      "改名"
+    )
+    await userEvent.click(css("#compose-form button[type='submit']"))
+    await waitPhase("desk")
+    const confirmDelete = vi.spyOn(window, "confirm").mockReturnValue(true)
+    await css("#widget-subs").click()
+    const renamed = [...document.querySelectorAll("#desk-dialog li")].find(
+      (node) => node.textContent?.includes("改名")
+    )
+    await userEvent.click(
+      page.elementLocator(
+        renamed?.querySelectorAll("button")[1] as HTMLButtonElement
+      )
+    )
+    await expect
+      .poll(() => document.getElementById("desk-dialog")?.textContent ?? "")
+      .not.toContain("改名")
+    confirmDelete.mockRestore()
+    await css("#dialog-close").click()
+    await waitPhase("desk")
+
+    await css("#widget-compose").click()
+    const again = document.getElementById("compose-form") as HTMLFormElement
+    await userEvent.fill(
+      again.querySelector("input") as HTMLInputElement,
+      "周报"
+    )
+    const typeSelect = [...again.querySelectorAll("select")].at(-3)
+    await userEvent.selectOptions(control(typeSelect!), "recurring")
+    const interval = [...again.querySelectorAll("select")].find((node) =>
+      [...node.options].some((option) => option.value === "custom")
+    )
+    await userEvent.selectOptions(control(interval!), "custom")
+    const days = [...again.querySelectorAll("input[type='number']")].at(
+      -1
+    ) as HTMLInputElement
+    await userEvent.fill(days, "14")
+    await userEvent.fill(
+      again.querySelector("textarea") as HTMLTextAreaElement,
+      ""
+    )
+    await userEvent.click(css("#compose-form button[type='submit']"))
+    await waitPhase("desk")
+    await view.unmount()
+
+    gate.subs = [
+      {
+        id: "srv-1",
+        name: "Figma",
+        amountCents: 1500,
+        currency: "USD",
+        category: "software",
+        notes: null,
+        type: "recurring",
+        interval: "monthly",
+        intervalDays: null,
+        chargeDate: "2026-11-20",
+        status: "active",
+      },
+    ]
+    let release: () => void = () => {}
+    gate.delay = new Promise((resolve) => {
+      release = resolve
+    })
+    const remote = await render(
+      providers({ name: "Ada", email: "ada@real.test" })
+    )
+    await waitPhase("desk")
+    expect(document.getElementById("widget-subs")?.textContent).toContain(
+      "Figma"
+    )
+    await css("#widget-compose").click()
+    await userEvent.click(css("#compose-form button[type='submit']"))
+    await expect.poll(() => document.body.textContent).toContain("保存中")
+    release()
+    gate.delay = null
+    await waitPhase("desk")
+    await expect.poll(() => document.body.textContent).toContain("已记下")
+
+    gate.fail = true
+    await css("#widget-compose").click()
+    await userEvent.click(css("#compose-form button[type='submit']"))
+    await expect.poll(() => document.body.textContent).toContain("boom")
+    gate.fail = false
+    await css("#dialog-close").click()
+    await waitPhase("desk")
+
+    await css("#widget-subs").click()
+    await page.getByRole("button", { name: "编辑" }).click()
+    gate.fail = true
+    await userEvent.click(css("#compose-form button[type='submit']"))
+    await expect.poll(() => document.body.textContent).toContain("boom")
+    gate.fail = false
+    await userEvent.click(css("#compose-form button[type='submit']"))
+    await waitPhase("desk")
+
+    gate.fail = true
+    await css("#widget-category").click()
+    await userEvent.selectOptions(css("[aria-label='Figma 分类']"), "cloud")
+    await expect.poll(() => document.body.textContent).toContain("boom")
+    gate.fail = false
+    await userEvent.selectOptions(css("[aria-label='Figma 分类']"), "cloud")
+    await waitPhase("desk")
+    await expect.poll(() => document.body.textContent).toContain("已更新")
+
+    const confirm = vi.spyOn(window, "confirm").mockReturnValue(true)
+    gate.fail = true
+    await css("#widget-subs").click()
+    await page.getByRole("button", { name: "删除" }).click()
+    await expect.poll(() => document.body.textContent).toContain("boom")
+    gate.fail = false
+    await page.getByRole("button", { name: "删除" }).click()
+    await expect.poll(() => document.body.textContent).toContain("已删除")
+    confirm.mockRestore()
+    await remote.unmount()
+
+    gate.subs = []
+    const empty = await render(
+      providers({ name: "Ada", email: "ada@real.test" })
+    )
+    await waitPhase("desk")
+    expect(document.getElementById("widget-category")?.textContent).toContain(
+      "暂无分类"
+    )
+    expect(document.getElementById("widget-subs")?.textContent).toContain(
+      "暂无订阅"
+    )
+    expect(document.getElementById("widget-charges")?.textContent).toContain(
+      "暂无扣费"
+    )
+    expect(document.getElementById("desk-ink-total")?.textContent).toContain(
+      "$0.00"
+    )
+    await css("#widget-category").click()
+    expect(document.getElementById("desk-dialog")?.textContent).toContain(
+      "暂无分类"
+    )
+    await css("#widget-subs").click()
+    expect(document.getElementById("desk-dialog")?.textContent).toContain(
+      "暂无订阅"
+    )
+    document
+      .getElementById("widget-charges")
+      ?.dispatchEvent(new PointerEvent("pointerup", { bubbles: true }))
+    await expect.poll(() => root().dataset.expanded).toBe("charges")
+    expect(document.getElementById("desk-dialog")?.textContent).toContain(
+      "暂无扣费"
+    )
+    await empty.unmount()
+  })
+})
+
+const emptyForm: DialogForm = {
+  name: "",
+  amount: 0,
+  currency: "USD",
+  category: "other",
+  notes: "",
+  type: "recurring",
+  interval: "monthly",
+  intervalDays: 30,
+  chargeDate: "2026-11-05",
+  status: "active",
+}
+
+describe("dialog paper", () => {
+  test("renders every face, including an unknown id", async () => {
+    const ink = await render(
+      <svg>
+        <DeskInk visible summary="$0.00 / 月" onLogout={() => {}} />
+      </svg>
+    )
+    expect(document.getElementById("btn-logout")).toBeNull()
+    await ink.unmount()
+
+    const onClose = vi.fn()
+    const onEdit = vi.fn()
+    const onDelete = vi.fn()
+    const onCategory = vi.fn()
+    const onChange = vi.fn()
+    const onSubmit = vi.fn()
+    const view = await render(
+      <svg>
+        <DeskDialogMount
+          widget={null}
+          items={[]}
+          charges={[]}
+          form={emptyForm}
+          editing={false}
+          submitting={false}
+          onClose={onClose}
+          onEdit={onEdit}
+          onDelete={onDelete}
+          onCategory={onCategory}
+          onChange={onChange}
+          onSubmit={onSubmit}
+        />
+      </svg>
+    )
+    expect(document.querySelector("#desk-dialog foreignObject")).toBeNull()
+    await view.unmount()
+
+    const faces: Array<ContentWidgetId | "nope"> = [
+      "category",
+      "subs",
+      "charges",
+      "compose",
+      "nope",
+    ]
+    for (const face of faces) {
+      const shown = await render(
+        <svg>
+          <DeskDialogMount
+            widget={face === "nope" ? ("nope" as ContentWidgetId) : face}
+            items={
+              face === "category"
+                ? [
+                    {
+                      id: "odd",
+                      name: "怪",
+                      amountCents: 100,
+                      currency: "USD",
+                      category: "nope",
+                      type: "one_time",
+                      interval: null,
+                      intervalDays: null,
+                      chargeDate: "2026-11-05",
+                      status: "active",
+                    },
+                  ]
+                : []
+            }
+            charges={[]}
+            form={{
+              ...emptyForm,
+              type: face === "compose" ? "one_time" : "recurring",
+            }}
+            editing={face === "compose"}
+            submitting={face === "compose"}
+            onClose={onClose}
+            onEdit={onEdit}
+            onDelete={onDelete}
+            onCategory={onCategory}
+            onChange={onChange}
+            onSubmit={onSubmit}
+          />
+        </svg>
+      )
+      const dialog = shown.container.querySelector("#desk-dialog")
+      expect(dialog, face).toBeTruthy()
+      expect(dialog?.querySelector("foreignObject")).toBeTruthy()
+      await shown.unmount()
+    }
+  })
+})

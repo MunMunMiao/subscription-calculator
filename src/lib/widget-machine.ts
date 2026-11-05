@@ -1,4 +1,4 @@
-export type DeskPhase = "login-only" | "enter" | "desk" | "held" | "exit"
+export type DeskPhase = "login-only" | "enter" | "desk" | "expanded" | "exit"
 
 export type ContentWidgetId = "category" | "subs" | "charges" | "compose"
 export type AuthWidgetId = "github"
@@ -37,7 +37,7 @@ export const AUTH_SCENE_IDS = AUTH_WIDGET_IDS.map((id) => WIDGET_SCENE_IDS[id])
 
 export type DeskSnapshot = {
   phase: DeskPhase
-  held: ContentWidgetId | null
+  expanded: ContentWidgetId | null
   locked: boolean
   fromLogin: boolean
 }
@@ -46,8 +46,8 @@ export type DeskEvent =
   | { type: "boot"; user: boolean; fromLogin: boolean }
   | { type: "login-success" }
   | { type: "enter-done" }
-  | { type: "pick"; id: ContentWidgetId }
-  | { type: "put-down" }
+  | { type: "expand"; id: ContentWidgetId }
+  | { type: "collapse" }
   | { type: "logout" }
   | { type: "exit-done" }
 
@@ -56,7 +56,7 @@ export function isDeskLocked(phase: DeskPhase): boolean {
 }
 
 export function isOverview(state: DeskSnapshot): boolean {
-  return state.phase === "desk" && state.held === null
+  return state.phase === "desk" && state.expanded === null
 }
 
 export function sceneIdFor(id: WidgetId): (typeof WIDGET_SCENE_IDS)[WidgetId] {
@@ -78,14 +78,14 @@ export function bootDesk(input: {
   if (!input.user) {
     return {
       phase: "login-only",
-      held: null,
+      expanded: null,
       locked: false,
       fromLogin: false,
     }
   }
   return {
     phase: "enter",
-    held: null,
+    expanded: null,
     locked: true,
     fromLogin: input.fromLogin,
   }
@@ -93,12 +93,12 @@ export function bootDesk(input: {
 
 function withPhase(
   phase: DeskPhase,
-  held: ContentWidgetId | null,
+  expanded: ContentWidgetId | null,
   fromLogin: boolean
 ): DeskSnapshot {
   return {
     phase,
-    held,
+    expanded,
     locked: isDeskLocked(phase),
     fromLogin,
   }
@@ -118,20 +118,20 @@ export function reduceDesk(
     case "enter-done":
       if (state.phase !== "enter") return state
       return withPhase("desk", null, false)
-    case "pick":
+    case "expand":
       if (state.locked) return state
-      if (state.phase !== "desk" && state.phase !== "held") return state
-      if (state.phase === "held" && state.held === event.id) {
+      if (state.phase !== "desk" && state.phase !== "expanded") return state
+      if (state.phase === "expanded" && state.expanded === event.id) {
         return withPhase("desk", null, false)
       }
-      return withPhase("held", event.id, false)
-    case "put-down":
+      return withPhase("expanded", event.id, false)
+    case "collapse":
       if (state.locked) return state
-      if (state.phase !== "held") return state
+      if (state.phase !== "expanded") return state
       return withPhase("desk", null, false)
     case "logout":
       if (state.locked) return state
-      if (state.phase !== "desk" && state.phase !== "held") return state
+      if (state.phase !== "desk" && state.phase !== "expanded") return state
       return withPhase("exit", null, false)
     case "exit-done":
       if (state.phase !== "exit") return state

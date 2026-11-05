@@ -88,8 +88,8 @@ bun run dev
 Open `http://localhost:3000`.
 
 1. Unauthed landing is `login-only`: the **same 1280×800 wood desk camera** (no zoom, tilt, or page cut) plus one auth widget (`widget-auth-github` · 「GitHub 登录」). No 「更多登录」 bucket, no content widgets, no cup/pen/plant/tape, and no overview widget.
-2. After GitHub OAuth (or Preview `/?e2e=browse`), MOTION `enter` flies the four content widgets in from off-screen. Idle desk with nothing held **is** 总览.
-3. Desk widgets are **compact** summary faces. Expanded dialog faces wait on a UI sticker (old “held = lift the same SVG” gate is obsolete). Logout plays `exit`. `/app`, `/login`, and `/subscriptions` redirect to `/`.
+2. After GitHub OAuth (or Preview `/?e2e=browse`), MOTION `enter` flies the four content widgets in from off-screen (`|Δ|≥420`). Idle desk with nothing expanded **is** 总览.
+3. Compact faces stay in their slots. A click opens a separate `#desk-dialog` on the same camera; close, desk click, or the same widget returns to compact. Logout plays `exit` (collapse first if needed). `/app`, `/login`, and `/subscriptions` redirect to `/`.
 
 `install` + `check` + `build` do **not** need real GitHub/Cloudflare credentials. Runtime sign-in, D1 persistence, and `wrangler deploy` do.
 
@@ -116,7 +116,7 @@ Preview a production build locally with `bun run preview` (Workers runtime via t
 | GSAP register   | `src/lib/gsap.ts`                                               |
 | Spend math      | `src/lib/spend.ts`                                              |
 
-The visible desk and stationery are one SVG scene with a **fixed camera** (`#stage` viewBox `0 0 1280 800`). Content lives in heterogeneous widgets (`widget-category`, `widget-subs`, `widget-charges`, `widget-compose`). Unauth landing is one Auth Widget per source (`widget-auth-github` in this version; later sources are more desk widgets, never a 「更多登录」 dialog). GSAP timelines bind to `login-only | enter | desk | held | exit` (see `MOTION.md`). TanStack Router is not used to switch those views.
+The visible desk and stationery are one SVG scene with a **fixed camera** (`#stage` viewBox `0 0 1280 800`). Content lives in heterogeneous widgets (`widget-category`, `widget-subs`, `widget-charges`, `widget-compose`). Unauth landing is one Auth Widget per source (`widget-auth-github` in this version; later sources are more desk widgets, never a 「更多登录」 dialog). GSAP timelines bind to `login-only | enter | desk | expanded | exit` (see `MOTION.md`). `#widget-auth-github` sits fully inside the slice-safe wood, not on the cropped corner. TanStack Router is not used to switch those views.
 
 Amounts are stored as integer minor units (`amount_cents`). USD and CNY are totaled separately; the app does not invent an exchange rate.
 

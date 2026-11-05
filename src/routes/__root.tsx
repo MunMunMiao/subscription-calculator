@@ -7,6 +7,11 @@ import { AppProviders } from "@/components/providers"
 import { getSession } from "@/lib/session"
 import appCss from "../styles.css?url"
 
+export const uiFlags = {
+  devtools:
+    Boolean(import.meta.env.DEV) && import.meta.env.VITE_TECHO_E2E !== "1",
+}
+
 export const Route = createRootRoute({
   beforeLoad: async () => {
     const session = await getSession()
@@ -61,7 +66,7 @@ function RootDocument({ children }: { children: ReactNode }) {
       <body className="antialiased">
         <AppProviders>
           {children}
-          {import.meta.env.DEV && import.meta.env.VITE_TECHO_E2E !== "1" ? (
+          {uiFlags.devtools ? (
             <TanStackDevtools
               config={{ position: "bottom-right" }}
               plugins={[

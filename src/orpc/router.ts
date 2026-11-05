@@ -93,6 +93,18 @@ function mapSubscription(row: typeof subscription.$inferSelect) {
   }
 }
 
+export function intervalFields(input: {
+  type: "recurring" | "one_time"
+  interval?: "monthly" | "yearly" | "weekly" | "custom" | null
+  intervalDays?: number | null
+}) {
+  return {
+    interval: input.type === "recurring" ? (input.interval ?? null) : null,
+    intervalDays:
+      input.interval === "custom" ? (input.intervalDays ?? null) : null,
+  }
+}
+
 function shiftDate(offsetDays: number): string {
   const date = new Date()
   date.setUTCDate(date.getUTCDate() + offsetDays)
@@ -147,9 +159,7 @@ export const router = {
             category: input.category,
             notes: input.notes ?? null,
             type: input.type,
-            interval: input.type === "recurring" ? input.interval : null,
-            intervalDays:
-              input.interval === "custom" ? (input.intervalDays ?? null) : null,
+            ...intervalFields(input),
             chargeDate: input.chargeDate,
             status: input.status,
             createdAt: now,
@@ -177,9 +187,7 @@ export const router = {
             category: input.category,
             notes: input.notes ?? null,
             type: input.type,
-            interval: input.type === "recurring" ? input.interval : null,
-            intervalDays:
-              input.interval === "custom" ? (input.intervalDays ?? null) : null,
+            ...intervalFields(input),
             chargeDate: input.chargeDate,
             status: input.status,
             updatedAt: now,
