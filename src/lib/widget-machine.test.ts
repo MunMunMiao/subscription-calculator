@@ -2,6 +2,7 @@
 import { describe, expect, test } from "bun:test"
 
 import {
+  AUTH_WIDGET_IDS,
   CONTENT_WIDGET_IDS,
   WIDGET_FOUR_STATES,
   WIDGET_SCENE_IDS,
@@ -40,14 +41,16 @@ describe("content widgets", () => {
     expect(isOverview({ ...deskIdle, phase: "held", held: "subs" })).toBe(false)
   })
 
-  test("scene ids are four content shells; login is not a desk widget", () => {
+  test("scene ids are four content shells plus the auth family", () => {
+    expect(CONTENT_WIDGET_IDS).not.toContain("login")
+    expect(AUTH_WIDGET_IDS).toEqual(["login"])
     expect(WIDGET_SCENE_IDS).toEqual({
       category: "widget-category",
       subs: "widget-subs",
       charges: "widget-charges",
       compose: "widget-compose",
+      login: "widget-login",
     })
-    expect(WIDGET_SCENE_IDS).not.toHaveProperty("login")
   })
 
   test("four-state recipe is idle | hover | act | held", () => {

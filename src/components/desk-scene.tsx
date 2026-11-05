@@ -534,11 +534,9 @@ function GinghamWashi() {
 
 export function DeskScene({
   children,
-  chrome,
   onDeskClick,
 }: {
   children?: ReactNode
-  chrome?: ReactNode
   onDeskClick?: () => void
 }) {
   return (
@@ -656,8 +654,6 @@ export function DeskScene({
         <GinghamWashi />
       </g>
       <g id="widget-layer">{children}</g>
-      {/* Same camera, outside desk object slots. Never a second world. */}
-      <g id="chrome-layer">{chrome}</g>
     </svg>
   )
 }

@@ -1,13 +1,14 @@
 /// <reference types="bun-types" />
 import { describe, expect, test } from "bun:test"
 
+import { AUTH_WIDGET_IDS, WIDGET_SCENE_IDS } from "./widget-machine"
 import {
+  AUTH_LOGIN_FACE,
+  AUTH_OUT,
+  AUTH_SELECTORS,
+  AUTH_SLOTS,
   CONTENT_SELECTORS,
   FROM,
-  LOGIN_BADGE,
-  LOGIN_CONTROL,
-  LOGIN_OUT,
-  LOGIN_SLOT,
   OFF,
   STAGE,
 } from "./widget-motion"
@@ -30,15 +31,20 @@ describe("MOTION §§1–3 hard gates", () => {
     }
   })
 
-  test("LOGIN_OUT flies fully above the 800h stage", () => {
-    expect(LOGIN_CONTROL).toBe("#login-control")
-    expect(LOGIN_OUT).toEqual({ x: 48, y: -840, rotate: -8 })
-    expect(Math.abs(LOGIN_OUT.y)).toBeGreaterThanOrEqual(420)
-    expect(LOGIN_OUT.y).not.toBe(-160)
-    expect(LOGIN_SLOT.x).toBeGreaterThan(STAGE.w * 0.7)
-    expect(LOGIN_SLOT.y).toBeGreaterThan(STAGE.h * 0.7)
-    expect(LOGIN_SLOT.x + LOGIN_BADGE.w).toBeLessThanOrEqual(STAGE.w)
-    expect(LOGIN_SLOT.y + LOGIN_BADGE.h).toBeLessThanOrEqual(STAGE.h)
-    expect(LOGIN_SLOT.y + LOGIN_BADGE.h + LOGIN_OUT.y).toBeLessThan(0)
+  test("auth widgets fly fully above the 800h stage", () => {
+    expect(AUTH_SELECTORS).toEqual(
+      AUTH_WIDGET_IDS.map((id) => `#${WIDGET_SCENE_IDS[id]}`)
+    )
+    expect(AUTH_SELECTORS).toContain("#widget-login")
+    expect(AUTH_OUT.login).toEqual({ x: 48, y: -840, rotate: -8 })
+    expect(Math.abs(AUTH_OUT.login.y)).toBeGreaterThanOrEqual(420)
+    expect(AUTH_OUT.login.y).not.toBe(-160)
+    expect(AUTH_SLOTS.login.x).toBeGreaterThan(STAGE.w * 0.7)
+    expect(AUTH_SLOTS.login.y).toBeGreaterThan(STAGE.h * 0.7)
+    expect(AUTH_SLOTS.login.x + AUTH_LOGIN_FACE.w).toBeLessThanOrEqual(STAGE.w)
+    expect(AUTH_SLOTS.login.y + AUTH_LOGIN_FACE.h).toBeLessThanOrEqual(STAGE.h)
+    expect(
+      AUTH_SLOTS.login.y + AUTH_LOGIN_FACE.h + AUTH_OUT.login.y
+    ).toBeLessThan(0)
   })
 })

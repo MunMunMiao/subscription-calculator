@@ -6,12 +6,12 @@ import { toast } from "sonner"
 
 import { DeskScene } from "@/components/desk-scene"
 import {
+  AuthLayer,
   CategoryWidget,
   ChargesWidget,
   ComposeHeldInk,
   ComposeWidget,
   DeskInk,
-  LoginControl,
   SubsWidget,
 } from "@/components/desk-widgets"
 import {
@@ -332,10 +332,8 @@ export function DeskApp({ user }: { user: DeskUser }) {
       data-held={desk.held ?? ""}
       data-locked={desk.locked ? "true" : "false"}
     >
-      <DeskScene
-        chrome={<LoginControl onLogin={login} />}
-        onDeskClick={putDown}
-      >
+      <DeskScene onDeskClick={putDown}>
+        <AuthLayer onLogin={login} />
         <CategoryWidget
           held={desk.held === "category"}
           onPick={() => pick("category")}

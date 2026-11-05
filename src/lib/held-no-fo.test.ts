@@ -10,6 +10,6 @@ describe("held widget faces have no foreignObject paper", () => {
     expect(src).not.toContain("foreignObject")
     expect(src).not.toContain("<input")
     expect(src).not.toContain("<form")
-    expect(src).not.toContain("widget-login")
+    expect(src).not.toContain("login-control")
   })
 })

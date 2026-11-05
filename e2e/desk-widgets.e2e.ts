@@ -33,16 +33,15 @@ async function gsapXY(page: Page, selector: string) {
 }
 
 test.describe("Widget desk smoke", () => {
-  test("login-only is a bare wood desk plus corner login chrome", async ({
-    page,
-  }) => {
+  test("login-only is a bare wood desk plus auth widgets", async ({ page }) => {
     await page.goto("/")
     await expect(desk(page)).toHaveAttribute("data-phase", "login-only")
     await assertFixedCamera(page)
-    await expect(page.locator("#widget-login")).toHaveCount(0)
-    await expect(page.locator("#stage #login-control")).toBeVisible()
-    await expect(page.locator("#login-control")).toContainText("GitHub 登录")
-    const badge = await page.locator("#login-control").boundingBox()
+    await expect(page.locator("#chrome-layer")).toHaveCount(0)
+    await expect(page.locator("#login-control")).toHaveCount(0)
+    await expect(page.locator("#stage #widget-login")).toBeVisible()
+    await expect(page.locator("#widget-login")).toContainText("GitHub 登录")
+    const badge = await page.locator("#widget-login").boundingBox()
     const stage = await page.locator("#stage").boundingBox()
     expect(badge).toBeTruthy()
     expect(stage).toBeTruthy()
@@ -76,8 +75,8 @@ test.describe("Widget desk smoke", () => {
     if (maxAbs > 0) expect(maxAbs).toBeGreaterThan(160)
     await expect(root).toHaveAttribute("data-held", "")
     await expect(page.locator("#widget-overview")).toHaveCount(0)
-    await expect(page.locator("#widget-login")).toHaveCount(0)
-    await expect(page.locator("#login-control")).toBeHidden()
+    await expect(page.locator("#widget-login")).toBeHidden()
+    await expect(page.locator("#login-control")).toHaveCount(0)
     await expect(page.locator("#widget-category")).toBeVisible()
     await expect(page.locator("#widget-subs")).toBeVisible()
     await expect(page.locator("#widget-charges")).toBeVisible()
@@ -138,16 +137,16 @@ test.describe("Widget desk smoke", () => {
     await expect(root).toHaveAttribute("data-phase", /exit|login-only/)
     let minLoginY = 0
     for (let i = 0; i < 24; i++) {
-      const login = await gsapXY(page, "#login-control")
+      const login = await gsapXY(page, "#widget-login")
       minLoginY = Math.min(minLoginY, login.y)
       if ((await root.getAttribute("data-phase")) === "login-only") break
       await page.waitForTimeout(50)
     }
     expect(minLoginY).toBeLessThanOrEqual(-400)
-    await expect(page.locator("#login-control")).toBeVisible({
+    await expect(page.locator("#widget-login")).toBeVisible({
       timeout: 8_000,
     })
-    await expect(page.locator("#widget-login")).toHaveCount(0)
+    await expect(page.locator("#login-control")).toHaveCount(0)
     await expect(page.locator("#prop-cup")).toBeHidden()
     await expect(page.locator("#widget-category")).toBeHidden()
   })

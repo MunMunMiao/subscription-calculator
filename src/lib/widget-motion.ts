@@ -1,7 +1,9 @@
 import { gsap } from "@/lib/gsap"
 import {
+  AUTH_WIDGET_IDS,
   CONTENT_SCENE_IDS,
   WIDGET_SCENE_IDS,
+  type AuthWidgetId,
   type ContentWidgetId,
   type WidgetFourState,
 } from "@/lib/widget-machine"
@@ -15,14 +17,27 @@ export const CONTENT_SELECTORS = [
   "#widget-compose",
 ] as const
 
+export const AUTH_SELECTORS = AUTH_WIDGET_IDS.map(
+  (id) => `#${WIDGET_SCENE_IDS[id]}`
+)
+
 export const STAGE = { w: 1280, h: 800 } as const
 export const OFF = 480
-export const LOGIN_CONTROL = "#login-control"
-/** Bottom-right of the same 1280×800 camera. Not a desk-object slot. */
-export const LOGIN_SLOT = { x: 1116, y: 752 } as const
-export const LOGIN_BADGE = { w: 148, h: 36 } as const
-/** Clears LOGIN_SLOT.y + LOGIN_BADGE.h above y=0 on the fixed 800h camera. */
-export const LOGIN_OUT = { x: 48, y: -840, rotate: -8 } as const
+
+/** Auth family slots on the fixed 1280×800 camera. */
+export const AUTH_SLOTS = {
+  login: { x: 1116, y: 752 },
+} as const satisfies Record<AuthWidgetId, { x: number; y: number }>
+
+export const AUTH_LOGIN_FACE = { w: 148, h: 36 } as const
+
+/** Per-auth-widget off-canvas. Must clear the 800h camera. */
+export const AUTH_OUT = {
+  login: { x: 48, y: -840, rotate: -8 },
+} as const satisfies Record<
+  AuthWidgetId,
+  { x: number; y: number; rotate: number }
+>
 
 export const FROM = {
   "#widget-category": { x: -OFF, y: -80 },
@@ -88,14 +103,20 @@ export function setWidgetState(id: string, state: WidgetFourState) {
   })
 }
 
+function authSelector(id: AuthWidgetId) {
+  return `#${WIDGET_SCENE_IDS[id]}`
+}
+
 export function poseLoginOnly() {
-  gsap.set(LOGIN_CONTROL, {
-    autoAlpha: 1,
-    x: 0,
-    y: 0,
-    rotate: 0,
-    scale: 1,
-  })
+  for (const id of AUTH_WIDGET_IDS) {
+    gsap.set(authSelector(id), {
+      autoAlpha: 1,
+      x: 0,
+      y: 0,
+      rotate: 0,
+      scale: 1,
+    })
+  }
   gsap.set(CONTENT_SELECTORS, {
     autoAlpha: 0,
     x: 0,
@@ -106,11 +127,13 @@ export function poseLoginOnly() {
 }
 
 export function poseRefreshStart() {
-  gsap.set(LOGIN_CONTROL, {
-    autoAlpha: 0,
-    x: 0,
-    y: LOGIN_OUT.y,
-  })
+  for (const id of AUTH_WIDGET_IDS) {
+    gsap.set(authSelector(id), {
+      autoAlpha: 0,
+      x: 0,
+      y: AUTH_OUT[id].y,
+    })
+  }
 }
 
 export function playEnterAfterLogin(onDone: () => void) {
@@ -124,22 +147,30 @@ export function playEnterAfterLogin(onDone: () => void) {
   })
 
   tl.addLabel("loginOut")
-    .to(
-      LOGIN_CONTROL,
+  for (const id of AUTH_WIDGET_IDS) {
+    tl.to(
+      authSelector(id),
       {
-        ...LOGIN_OUT,
+        ...AUTH_OUT[id],
         autoAlpha: 1,
         duration: 0.65,
         ease: "power1.out",
       },
       "loginOut"
     )
-    .set(LOGIN_CONTROL, {
-      autoAlpha: 0,
-      x: 0,
-      y: LOGIN_OUT.y,
-      rotate: 0,
-    })
+  }
+  for (const id of AUTH_WIDGET_IDS) {
+    tl.set(
+      authSelector(id),
+      {
+        autoAlpha: 0,
+        x: 0,
+        y: AUTH_OUT[id].y,
+        rotate: 0,
+      },
+      "loginOut+=0.65"
+    )
+  }
 
   tl.addLabel("flyIn", "loginOut+=0.28")
   CONTENT_SELECTORS.forEach((sel, i) => {
@@ -170,11 +201,7 @@ export function playEnterAfterLogin(onDone: () => void) {
 
 export function playEnterLoggedInRefresh(onDone: () => void) {
   lockStage(true)
-  gsap.set(LOGIN_CONTROL, {
-    autoAlpha: 0,
-    x: 0,
-    y: LOGIN_OUT.y,
-  })
+  poseRefreshStart()
   const tl = gsap.timeline({
     defaults: { ease: "power2.inOut" },
     onComplete: () => {
@@ -252,15 +279,22 @@ export function playExit(heldId: string | null, onDone: () => void) {
   tl.set(CONTENT_SELECTORS, { autoAlpha: 0 })
 
   tl.addLabel("loginIn", "flyOut+=0.4")
-    .set(LOGIN_CONTROL, {
-      autoAlpha: 1,
-      x: LOGIN_OUT.x,
-      y: LOGIN_OUT.y,
-      rotate: -6,
-      scale: 1,
-    })
-    .to(
-      LOGIN_CONTROL,
+  for (const id of AUTH_WIDGET_IDS) {
+    const sel = authSelector(id)
+    const out = AUTH_OUT[id]
+    tl.set(
+      sel,
+      {
+        autoAlpha: 1,
+        x: out.x,
+        y: out.y,
+        rotate: -6,
+        scale: 1,
+      },
+      "loginIn"
+    )
+    tl.to(
+      sel,
       {
         x: 0,
         y: 0,
@@ -270,6 +304,7 @@ export function playExit(heldId: string | null, onDone: () => void) {
       },
       "loginIn"
     )
+  }
 
   return skipIfReduce(tl)
 }

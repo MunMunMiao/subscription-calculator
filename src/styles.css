@@ -183,18 +183,18 @@
   pointer-events: none;
 }
 
-[data-phase="desk"] #login-control,
-[data-phase="held"] #login-control,
-[data-phase="enter"]:not([data-from="login"]) #login-control {
+[data-phase="desk"] #auth-layer,
+[data-phase="held"] #auth-layer,
+[data-phase="enter"]:not([data-from="login"]) #auth-layer {
   visibility: hidden;
   pointer-events: none;
 }
 
-[data-locked="true"] #login-control {
+[data-locked="true"] .auth-widget {
   pointer-events: none;
 }
 
-#login-control {
+.auth-widget {
   cursor: pointer;
 }
 

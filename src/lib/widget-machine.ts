@@ -1,8 +1,8 @@
 export type DeskPhase = "login-only" | "enter" | "desk" | "held" | "exit"
 
 export type ContentWidgetId = "category" | "subs" | "charges" | "compose"
-
-export type WidgetId = ContentWidgetId
+export type AuthWidgetId = "login"
+export type WidgetId = ContentWidgetId | AuthWidgetId
 
 export const CONTENT_WIDGET_IDS = [
   "category",
@@ -10,6 +10,9 @@ export const CONTENT_WIDGET_IDS = [
   "charges",
   "compose",
 ] as const
+
+/** Auth family on login-only. Add ids here; do not one-off a chrome badge. */
+export const AUTH_WIDGET_IDS = ["login"] as const
 
 export const WIDGET_FOUR_STATES = ["idle", "hover", "act", "held"] as const
 
@@ -20,17 +23,17 @@ export const WIDGET_SCENE_IDS = {
   subs: "widget-subs",
   charges: "widget-charges",
   compose: "widget-compose",
+  login: "widget-login",
 } as const
 
 export type SceneWidgetId =
   (typeof WIDGET_SCENE_IDS)[keyof typeof WIDGET_SCENE_IDS]
 
-export const CONTENT_SCENE_IDS = [
-  WIDGET_SCENE_IDS.category,
-  WIDGET_SCENE_IDS.subs,
-  WIDGET_SCENE_IDS.charges,
-  WIDGET_SCENE_IDS.compose,
-] as const
+export const CONTENT_SCENE_IDS = CONTENT_WIDGET_IDS.map(
+  (id) => WIDGET_SCENE_IDS[id]
+)
+
+export const AUTH_SCENE_IDS = AUTH_WIDGET_IDS.map((id) => WIDGET_SCENE_IDS[id])
 
 export type DeskSnapshot = {
   phase: DeskPhase
@@ -62,6 +65,10 @@ export function sceneIdFor(id: WidgetId): (typeof WIDGET_SCENE_IDS)[WidgetId] {
 
 export function isContentWidgetId(value: string): value is ContentWidgetId {
   return (CONTENT_WIDGET_IDS as readonly string[]).includes(value)
+}
+
+export function isAuthWidgetId(value: string): value is AuthWidgetId {
+  return (AUTH_WIDGET_IDS as readonly string[]).includes(value)
 }
 
 export function bootDesk(input: {
