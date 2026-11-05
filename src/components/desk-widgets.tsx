@@ -509,6 +509,7 @@ function AuthGithubWidget({ onLogin }: { onLogin: () => void }) {
         }}
       >
         <rect
+          className="ink-shadow"
           width={AUTH_GITHUB_FACE.w}
           height={AUTH_GITHUB_FACE.h}
           rx="14"

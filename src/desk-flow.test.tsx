@@ -351,6 +351,16 @@ describe("PM desk path", () => {
     const authFace = document.querySelector("#widget-auth-github rect")
     expect(authFace?.getAttribute("width")).toBe("220")
     expect(authFace?.getAttribute("height")).toBe("64")
+    expect(authFace?.classList.contains("ink-shadow")).toBe(true)
+    expect(getComputedStyle(authFace!).filter).toContain("widgetShadowDesk")
+    const deskDrop = document.querySelector("#widgetShadowDesk feDropShadow")
+    expect(deskDrop?.getAttribute("flood-color")).toBe(SHADOW.ink)
+    expect(Number(deskDrop?.getAttribute("dy"))).toBe(SHADOW.desk.dy)
+    expect(Number(deskDrop?.getAttribute("stdDeviation"))).toBe(SHADOW.desk.std)
+    expect(Number(deskDrop?.getAttribute("flood-opacity"))).toBe(
+      SHADOW.desk.opacity
+    )
+    expect(deskDrop?.getAttribute("dx")).toBe("0")
     for (const id of [
       "widget-category",
       "widget-subs",

@@ -325,7 +325,8 @@
   user-select: none;
 }
 
-.content-widget .ink-shadow {
+.content-widget .ink-shadow,
+.auth-widget .ink-shadow {
   filter: url(#widgetShadowDesk);
 }
 
