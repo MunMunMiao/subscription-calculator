@@ -61,7 +61,7 @@ function RootDocument({ children }: { children: ReactNode }) {
       <body className="antialiased">
         <AppProviders>
           {children}
-          {import.meta.env.DEV ? (
+          {import.meta.env.DEV && import.meta.env.VITE_TECHO_E2E !== "1" ? (
             <TanStackDevtools
               config={{ position: "bottom-right" }}
               plugins={[

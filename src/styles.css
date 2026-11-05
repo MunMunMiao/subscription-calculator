@@ -158,6 +158,14 @@
   transform-origin: 50% 50%;
 }
 
+[data-phase="login-only"] .content-widget,
+[data-phase="desk"] #widget-login,
+[data-phase="held"] #widget-login,
+[data-phase="enter"]:not([data-from="login"]) #widget-login {
+  visibility: hidden;
+  pointer-events: none;
+}
+
 .widget-face {
   overflow: hidden;
   opacity: 0;

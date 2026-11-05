@@ -14,10 +14,10 @@ test.describe("Widget desk smoke", () => {
     await expect(page.locator("#brand-mark")).toContainText("手帐")
     await expect(page.locator("#btn-login")).toContainText("GitHub 登录")
     await expect(page.locator("#widget-overview")).toHaveCount(0)
-    await expect(page.locator("#widget-category")).not.toBeInViewport()
-    await expect(page.locator("#widget-subs")).not.toBeInViewport()
-    await expect(page.locator("#widget-charges")).not.toBeInViewport()
-    await expect(page.locator("#widget-compose")).not.toBeInViewport()
+    await expect(page.locator("#widget-category")).toBeHidden()
+    await expect(page.locator("#widget-subs")).toBeHidden()
+    await expect(page.locator("#widget-charges")).toBeHidden()
+    await expect(page.locator("#widget-compose")).toBeHidden()
   })
 
   test("e2e browse plays enter then desk with four content widgets", async ({
@@ -29,17 +29,19 @@ test.describe("Widget desk smoke", () => {
     await expect(root).toHaveAttribute("data-phase", "desk", { timeout: 8_000 })
     await expect(root).toHaveAttribute("data-held", "")
     await expect(page.locator("#widget-overview")).toHaveCount(0)
-    await expect(page.locator("#widget-login")).not.toBeInViewport()
-    await expect(page.locator("#widget-category")).toBeInViewport()
-    await expect(page.locator("#widget-subs")).toBeInViewport()
-    await expect(page.locator("#widget-charges")).toBeInViewport()
-    await expect(page.locator("#widget-compose")).toBeInViewport()
+    await expect(page.locator("#widget-login")).toBeHidden()
+    await expect(page.locator("#widget-category")).toBeVisible()
+    await expect(page.locator("#widget-subs")).toBeVisible()
+    await expect(page.locator("#widget-charges")).toBeVisible()
+    await expect(page.locator("#widget-compose")).toBeVisible()
 
     await page.locator("#widget-category").click()
     await expect(root).toHaveAttribute("data-phase", "held")
     await expect(root).toHaveAttribute("data-held", "category")
 
-    await page.locator("#desk").click({ position: { x: 40, y: 40 } })
+    await page
+      .locator("#stage")
+      .click({ position: { x: 24, y: 24 }, force: true })
     await expect(root).toHaveAttribute("data-phase", "desk")
     await expect(root).toHaveAttribute("data-held", "")
 

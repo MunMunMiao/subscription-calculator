@@ -404,6 +404,7 @@ export function DeskApp({ user }: { user: DeskUser }) {
       className="desk-root"
       data-testid="desk-root"
       data-phase={desk.phase}
+      data-from={desk.fromLogin ? "login" : "session"}
       data-held={desk.held ?? ""}
       data-locked={desk.locked ? "true" : "false"}
     >
