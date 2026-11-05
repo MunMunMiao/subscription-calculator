@@ -29,28 +29,28 @@ jobs:
         env:
           VITE_TECHO_E2E: "1"
       - id: cf
-        name: Enable workers.dev Preview URLs (keep production workers.dev as-is)
+        name: Enable workers.dev + Preview URLs (does not change orbit.lyz.cloud)
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
           set -euo pipefail
           api="https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}"
-          current="$(curl -fsS \
+          echo "Before:"
+          curl -fsS \
             -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
-            -H "Content-Type: application/json" \
-            "${api}/workers/scripts/subscription-calculator/subdomain")"
-          printf '%s\n' "$current"
-          enabled="$(printf '%s' "$current" | jq -c '.result.enabled')"
+            "${api}/workers/scripts/subscription-calculator/subdomain"
+          echo
           curl -fsS -X POST \
             -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
             -H "Content-Type: application/json" \
             -H "Cloudflare-Workers-Script-Api-Date: 2025-08-01" \
             "${api}/workers/scripts/subscription-calculator/subdomain" \
-            --data "$(jq -n --argjson enabled "$enabled" '{enabled: $enabled, previews_enabled: true}')"
+            --data '{"enabled":true,"previews_enabled":true}'
+          echo
           subdomain="$(curl -fsS \
             -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
-            "${api}/workers/subdomain" | jq -r '.result.subdomain')"
+            "${api}/workers/subdomain" | jq -er '.result.subdomain')"
           echo "subdomain=$subdomain" >> "$GITHUB_OUTPUT"
       - id: preview
         name: Create or update Preview
@@ -79,24 +79,12 @@ jobs:
           if [ "$status" -ne 0 ]; then
             exit "$status"
           fi
-          preview_url="$(python3 - <<'PY'
-          import json, pathlib
-          text = pathlib.Path("/tmp/wrangler-preview.out").read_text()
-          err = pathlib.Path("/tmp/wrangler-preview.err").read_text()
-          blob = text if "{" in text else err
-          idx = blob.rfind("\n{")
-          raw = blob[idx + 1 :] if idx >= 0 else blob[blob.find("{") :]
-          obj = json.loads(raw)
-          urls = list((obj.get("preview") or {}).get("urls") or [])
-          urls += list((obj.get("deployment") or {}).get("urls") or [])
-          urls += list(obj.get("preview_urls") or [])
-          urls += list(obj.get("deployment_urls") or [])
-          print(next((u for u in urls if u), ""))
-          PY
-          )"
-          if [ -z "$preview_url" ]; then
-            preview_url="https://pr-${PR}-subscription-calculator.${WORKERS_SUBDOMAIN}.workers.dev"
-            echo "Wrangler returned no Preview URL; falling back to ${preview_url}"
+          json="$(cat /tmp/wrangler-preview.out /tmp/wrangler-preview.err | sed -n '/^{/,$p')"
+          preview_url="$(printf '%s\n' "$json" | jq -r '.preview.urls[0] // .deployment.urls[0] // empty' || true)"
+          if [ -z "$preview_url" ] || [ "$preview_url" = "null" ]; then
+            echo "wrangler preview returned empty urls. JSON was:" >&2
+            printf '%s\n' "$json" >&2
+            exit 1
           fi
           echo "preview_url=$preview_url" >> "$GITHUB_OUTPUT"
       - name: Probe Preview

@@ -24,6 +24,7 @@
     },
   ],
   "routes": [{ "pattern": "orbit.lyz.cloud", "custom_domain": true }],
+  "workers_dev": true,
   "preview_urls": true,
   "vars": {
     "BETTER_AUTH_URL": "https://orbit.lyz.cloud",
