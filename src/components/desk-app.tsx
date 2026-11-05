@@ -11,7 +11,6 @@ import {
   ComposeHeldInk,
   ComposeWidget,
   DeskInk,
-  LoginWidget,
   SubsWidget,
 } from "@/components/desk-widgets"
 import {
@@ -360,11 +359,6 @@ export function DeskApp({ user }: { user: DeskUser }) {
       data-locked={desk.locked ? "true" : "false"}
     >
       <DeskScene onDeskClick={putDown}>
-        <LoginWidget
-          onPreviewEnter={allowE2ePreview() ? enterPreview : undefined}
-        >
-          <LandingFace onLogin={login} />
-        </LoginWidget>
         <CategoryWidget
           held={desk.held === "category"}
           onPick={() => pick("category")}
@@ -426,13 +420,26 @@ export function DeskApp({ user }: { user: DeskUser }) {
           onLogout={logout}
         />
       </DeskScene>
+      <LoginControl
+        onLogin={login}
+        onPreviewEnter={allowE2ePreview() ? enterPreview : undefined}
+      />
     </div>
   )
 }
 
-function LandingFace({ onLogin }: { onLogin: () => void }) {
+function LoginControl({
+  onLogin,
+  onPreviewEnter,
+}: {
+  onLogin: () => void
+  onPreviewEnter?: () => void
+}) {
   return (
-    <div className="login-actions">
+    <div id="login-control" className="login-control">
+      <p id="brand-mark" className="login-badge">
+        手帐
+      </p>
       <button
         type="button"
         id="btn-login"
@@ -444,6 +451,16 @@ function LandingFace({ onLogin }: { onLogin: () => void }) {
         </span>
         GitHub 登录
       </button>
+      {onPreviewEnter ? (
+        <button
+          type="button"
+          id="btn-e2e-enter"
+          className="ink-btn"
+          onClick={onPreviewEnter}
+        >
+          进入桌面
+        </button>
+      ) : null}
     </div>
   )
 }

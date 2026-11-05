@@ -40,14 +40,14 @@ describe("content widgets", () => {
     expect(isOverview({ ...deskIdle, phase: "held", held: "subs" })).toBe(false)
   })
 
-  test("scene ids are login + four content shells", () => {
+  test("scene ids are four content shells; login is not a desk widget", () => {
     expect(WIDGET_SCENE_IDS).toEqual({
-      login: "widget-login",
       category: "widget-category",
       subs: "widget-subs",
       charges: "widget-charges",
       compose: "widget-compose",
     })
+    expect(WIDGET_SCENE_IDS).not.toHaveProperty("login")
   })
 
   test("four-state recipe is idle | hover | act | held", () => {

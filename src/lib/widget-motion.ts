@@ -17,6 +17,7 @@ export const CONTENT_SELECTORS = [
 
 export const STAGE = { w: 1280, h: 800 } as const
 export const OFF = 480
+export const LOGIN_CONTROL = "#login-control"
 export const LOGIN_OUT = { x: 48, y: -720, rotate: -8 } as const
 
 export const FROM = {
@@ -83,7 +84,7 @@ export function setWidgetState(id: string, state: WidgetFourState) {
 }
 
 export function poseLoginOnly() {
-  gsap.set("#widget-login", {
+  gsap.set(LOGIN_CONTROL, {
     autoAlpha: 1,
     x: 0,
     y: 0,
@@ -100,7 +101,7 @@ export function poseLoginOnly() {
 }
 
 export function poseRefreshStart() {
-  gsap.set("#widget-login", {
+  gsap.set(LOGIN_CONTROL, {
     autoAlpha: 0,
     x: 0,
     y: LOGIN_OUT.y,
@@ -119,7 +120,7 @@ export function playEnterAfterLogin(onDone: () => void) {
 
   tl.addLabel("loginOut")
     .to(
-      "#widget-login",
+      LOGIN_CONTROL,
       {
         ...LOGIN_OUT,
         autoAlpha: 1,
@@ -128,7 +129,7 @@ export function playEnterAfterLogin(onDone: () => void) {
       },
       "loginOut"
     )
-    .set("#widget-login", {
+    .set(LOGIN_CONTROL, {
       autoAlpha: 0,
       x: 0,
       y: LOGIN_OUT.y,
@@ -164,7 +165,7 @@ export function playEnterAfterLogin(onDone: () => void) {
 
 export function playEnterLoggedInRefresh(onDone: () => void) {
   lockStage(true)
-  gsap.set("#widget-login", {
+  gsap.set(LOGIN_CONTROL, {
     autoAlpha: 0,
     x: 0,
     y: LOGIN_OUT.y,
@@ -246,7 +247,7 @@ export function playExit(heldId: string | null, onDone: () => void) {
   tl.set(CONTENT_SELECTORS, { autoAlpha: 0 })
 
   tl.addLabel("loginIn", "flyOut+=0.4")
-    .set("#widget-login", {
+    .set(LOGIN_CONTROL, {
       autoAlpha: 1,
       x: LOGIN_OUT.x,
       y: LOGIN_OUT.y,
@@ -254,7 +255,7 @@ export function playExit(heldId: string | null, onDone: () => void) {
       scale: 1,
     })
     .to(
-      "#widget-login",
+      LOGIN_CONTROL,
       {
         x: 0,
         y: 0,

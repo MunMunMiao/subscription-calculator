@@ -171,44 +171,61 @@
   pointer-events: all;
 }
 
+[data-phase="login-only"] #desk-hit,
+[data-phase="enter"] #desk-hit {
+  pointer-events: none;
+}
+
 [data-phase="login-only"] .content-widget,
-[data-phase="desk"] #widget-login,
-[data-phase="held"] #widget-login,
-[data-phase="enter"]:not([data-from="login"]) #widget-login {
+[data-phase="login-only"] #prop-layer,
+[data-phase="login-only"] #desk-ink {
   visibility: hidden;
   pointer-events: none;
 }
 
-.login-face,
-.login-face-inner {
-  overflow: hidden;
+[data-phase="desk"] #login-control,
+[data-phase="held"] #login-control,
+[data-phase="enter"]:not([data-from="login"]) #login-control {
+  visibility: hidden;
+  pointer-events: none;
 }
 
-.login-face-inner {
-  width: 100%;
-  height: 100%;
-  box-sizing: border-box;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+[data-locked="true"] #login-control {
+  pointer-events: none;
 }
 
-.login-actions {
+.login-control {
+  position: absolute;
+  top: 1.1rem;
+  right: 1.1rem;
+  z-index: 10;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 0.4rem;
+  align-items: flex-end;
+  gap: 0.35rem;
 }
 
-.login-face .github-login {
+.login-badge {
+  margin: 0;
+  font-family: "Ma Shan Zheng", KaiTi, serif;
+  font-size: 1.2rem;
+  color: #2a2118;
+  opacity: 0.78;
+}
+
+.login-control .github-login {
   margin-top: 0;
   padding: 0.28rem 0.8rem 0.28rem 0.45rem;
   font-size: 0.95rem;
 }
 
-.login-face .github-login-icon {
+.login-control .github-login-icon {
   width: 1.35rem;
   height: 1.35rem;
+}
+
+.login-control .ink-btn {
+  font-size: 0.85rem;
 }
 
 .paper-layer {

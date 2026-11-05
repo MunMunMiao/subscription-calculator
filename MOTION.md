@@ -7,6 +7,7 @@
 
 **舞台**：现有 DeskScene SVG（木桌 + 道具线稿），禁止换皮 / 新 scene-graph / 第二间房。  
 **绑定**：时间轴绑场景态 `login-only | enter | desk | held(widgetId) | exit`，不绑路由。  
+**login-only**：光木桌。零桌上物件（无登录卡 / 无杯笔植物胶带 / 无内容 Widget）。登录是角标 chrome `#login-control`，不是桌上物件。`widget-login` 作废。  
 **禁止**：整页 opacity fade；第二张 HTML 纸；开本翻封面当主进场；切签换墨迹旧模型；同时两个 held；`widget-overview`；`|Δ|≤160` 微移后隐身冒充飞入/飞出。  
 **手感**：场景轨 400–700ms · soft ease（`power2.inOut` / `power1.out`）· 吉卜力日常；描边轻、硬影无；接触影 `dy≤3` · `std≤1.6` · `opacity≤0.16`。
 
@@ -14,13 +15,13 @@
 
 内容 Widget（SCENE ids）：
 
-| id                | 形态                  | 在场                        |
-| ----------------- | --------------------- | --------------------------- |
-| `widget-login`    | 独立登录卡            | 仅 `login-only`；enter 移出 |
-| `widget-category` | 色块贴板              | enter 后 · desk/held        |
-| `widget-subs`     | 索引卡叠              | enter 后 · desk/held        |
-| `widget-charges`  | 日程条 / 票根         | enter 后 · desk/held        |
-| `widget-compose`  | 便签 + 笔（唯一纸感） | enter 后 · desk/held        |
+| id                | 形态                  | 在场                                        |
+| ----------------- | --------------------- | ------------------------------------------- |
+| `login-control`   | 角标 GitHub chrome    | 仅 `login-only`；enter 移出（不是桌上物件） |
+| `widget-category` | 色块贴板              | enter 后 · desk/held                        |
+| `widget-subs`     | 索引卡叠              | enter 后 · desk/held                        |
+| `widget-charges`  | 日程条 / 票根         | enter 后 · desk/held                        |
+| `widget-compose`  | 便签 + 笔（唯一纸感） | enter 后 · desk/held                        |
 
 **无 `widget-overview`**：`desk` 全 idle = 总览。
 
@@ -31,7 +32,7 @@
 
 ## 0. Widget 四态（idle / hover / act / held）
 
-适用：`widget-login` · `widget-category` · `widget-subs` · `widget-charges` · `widget-compose`；次要胶带仅前三态装饰反馈。
+适用：`widget-category` · `widget-subs` · `widget-charges` · `widget-compose`；次要胶带仅前三态装饰反馈。`#login-control` 不是桌上 Widget，无四态拿放。
 
 对齐贴纸页：**idle = 放下** · **held = 拿起**。`settle` / put-down = held → 回槽 → idle。
 
@@ -75,7 +76,7 @@ function setWidgetState(id, state) {
 
 ## 1. `enter`（登录成功 · 不可打断）
 
-顺序：登录 Widget **整件移出 viewBox**（禁 fade / 禁半途隐身）→ 四内容 Widget **从画外**错落入槽 → `desk`。总长 ≈ 1.3–1.8s。输入锁定至 `onComplete`。
+顺序：角标 `#login-control` **整件移出视口**（禁 fade / 禁半途隐身）→ 四内容 Widget **从画外**错落入槽 → `desk`。总长 ≈ 1.3–1.8s。输入锁定至 `onComplete`。
 
 **舞台**：`#stage` viewBox `0 0 1280 800`。  
 **硬闸（产品拒签 P0/P1）**：
@@ -119,7 +120,7 @@ function playEnterAfterLogin() {
   // 1) login translates fully OFF top edge (visible the whole way)
   tl.addLabel("loginOut")
     .to(
-      "#widget-login",
+      "#login-control",
       {
         ...LOGIN_OUT,
         autoAlpha: 1,
@@ -128,7 +129,7 @@ function playEnterAfterLogin() {
       },
       "loginOut"
     )
-    .set("#widget-login", { autoAlpha: 0, x: 0, y: LOGIN_OUT.y, rotate: 0 }) // park ONLY after off-canvas
+    .set("#login-control", { autoAlpha: 0, x: 0, y: LOGIN_OUT.y, rotate: 0 }) // park ONLY after off-canvas
 
   // 2) four content widgets fly IN from true offscreen into slots
   tl.addLabel("flyIn", "loginOut+=0.28")
@@ -165,7 +166,7 @@ function playEnterAfterLogin() {
 
 ## 2. `enter`（已登录刷新 · 不可打断）
 
-同四模块 **从画外**飞入（共用 `FROM`，`|Δ|≥420`）；**舞台上不出现** `widget-login`。落定 → `desk` 全 idle = 总览。
+同四模块 **从画外**飞入（共用 `FROM`，`|Δ|≥420`）；**舞台上不出现** 登录 chrome。落定 → `desk` 全 idle = 总览。
 
 ```js
 function playEnterLoggedInRefresh() {
@@ -173,7 +174,7 @@ function playEnterLoggedInRefresh() {
     defaults: { ease: "power2.inOut" },
     onStart: () => {
       lockInput(true)
-      gsap.set("#widget-login", { autoAlpha: 0, x: 0, y: LOGIN_OUT.y }) // never on stage
+      gsap.set("#login-control", { autoAlpha: 0, x: 0, y: LOGIN_OUT.y }) // never on stage
     },
     onComplete: () => {
       lockInput(false)
@@ -209,13 +210,13 @@ function playEnterLoggedInRefresh() {
 }
 ```
 
-Boot 分支：未登录 → `login-only`（只放 `widget-login`，四槽空）；已登录 → 直接本轨 `enter`。
+Boot 分支：未登录 → `login-only`（光木桌 + 角标 `#login-control`，四槽空、无道具）；已登录 → 直接本轨 `enter`（无登录 chrome）。
 
 ---
 
 ## 3. `exit`（登出 · 不可打断）
 
-若当前 `held`：先 put-down → 四内容 **飞出画外**（镜像 `FROM`，`|Δ|≥420`，途中 `autoAlpha:1`）→ 登录卡从 **画外上方**飞回桌心 → `login-only`。总长 ≈ 1.3–1.8s。
+若当前 `held`：先 put-down → 四内容 **飞出画外**（镜像 `FROM`，`|Δ|≥420`，途中 `autoAlpha:1`）→ 角标 `#login-control` 从 **画外**飞回角落 → `login-only` 光木桌。总长 ≈ 1.3–1.8s。
 
 ```js
 function playExit(heldId /* string | null */) {
@@ -254,7 +255,7 @@ function playExit(heldId /* string | null */) {
 
   // 2) login flies IN from true above-canvas (not y:-160 pop)
   tl.addLabel("loginIn", "flyOut+=0.4")
-    .set("#widget-login", {
+    .set("#login-control", {
       autoAlpha: 1,
       x: LOGIN_OUT.x,
       y: LOGIN_OUT.y,
@@ -262,7 +263,7 @@ function playExit(heldId /* string | null */) {
       scale: 1,
     })
     .to(
-      "#widget-login",
+      "#login-control",
       {
         x: 0,
         y: 0,
@@ -405,9 +406,10 @@ function playEnterRespectingMotion(kind /* "login" | "refresh" */) {
 
 **动效硬闸验收（产品 P0-1 / P1-4）**：
 
-1. 登录出镜：末帧前 `#widget-login` 包围盒完全离开 viewBox；禁止 `y≈-160` + `autoAlpha:0`。
+1. 登录出镜：末帧前 `#login-control` 包围盒完全离开视口；禁止 `y≈-160` + `autoAlpha:0`。桌上无登录卡。
 2. 四件飞入 / 飞出：相对槽位 `|Δx|` 或 `|Δy|` ≥ 420（本文件 `OFF = 480`）；禁止 80–160 pop-in。
 3. 过场途中保持 `autoAlpha:1`；`.set(autoAlpha:0)` 只允许在出画之后。
+4. `login-only` 光木桌：无杯/笔/植物/胶带，无内容 Widget。
 
 ```ts
 type Scene =
@@ -418,17 +420,16 @@ type Scene =
   | "exit";
 
 type WidgetId =
-  | "widget-login"
   | "widget-category"
   | "widget-subs"
   | "widget-charges"
   | "widget-compose";
-// NO widget-overview
+// NO widget-overview, NO widget-login
 
-playEnterAfterLogin(): Timeline;
-playEnterLoggedInRefresh(): Timeline;
+playEnterAfterLogin(): Timeline; // flies #login-control off, then content FROM
+playEnterLoggedInRefresh(): Timeline; // no login chrome on stage
 playExit(heldId: WidgetId | null): Timeline;
-pickUp(id: Exclude<WidgetId, "widget-login">): Timeline;
+pickUp(id: WidgetId): Timeline;
 putDown(): Timeline | null;
 setWidgetState(id: WidgetId | string, state: "idle" | "hover" | "act" | "held"): Timeline;
 ```

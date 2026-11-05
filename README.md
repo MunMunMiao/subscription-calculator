@@ -87,7 +87,7 @@ bun run dev
 
 Open `http://localhost:3000`.
 
-1. Unauthed landing is `login-only`: the wooden desk with only **widget-login** (手帐 + GitHub 登录). No content widgets, and no overview widget.
+1. Unauthed landing is `login-only`: a **bare wooden desk** plus a corner **login-control** (手帐 + GitHub). No desk login card, no cup/pen/plant/tape, no content widgets, and no overview widget.
 2. After GitHub OAuth (or Preview `/?e2e=browse`), MOTION `enter` flies the four content widgets in from off-screen. Idle desk with nothing held **is** 总览.
 3. Click a widget to pick it up (`held`); click the wood to put it down. Logout plays `exit`. `/app`, `/login`, and `/subscriptions` redirect to `/`.
 
@@ -116,7 +116,7 @@ Preview a production build locally with `bun run preview` (Workers runtime via t
 | GSAP register   | `src/lib/gsap.ts`                                               |
 | Spend math      | `src/lib/spend.ts`                                              |
 
-The visible desk and stationery are one SVG scene. Content lives in heterogeneous widgets (`widget-login`, `widget-category`, `widget-subs`, `widget-charges`, `widget-compose`). GSAP timelines bind to `login-only | enter | desk | held | exit` (see `MOTION.md`). TanStack Router is not used to switch those views.
+The visible desk and stationery are one SVG scene. Content lives in heterogeneous widgets (`widget-category`, `widget-subs`, `widget-charges`, `widget-compose`). Unauth login is HTML chrome (`#login-control`), not a desk object. GSAP timelines bind to `login-only | enter | desk | held | exit` (see `MOTION.md`). TanStack Router is not used to switch those views.
 
 Amounts are stored as integer minor units (`amount_cents`). USD and CNY are totaled separately; the app does not invent an exchange rate.
 

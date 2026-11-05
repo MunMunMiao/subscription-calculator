@@ -2,7 +2,7 @@ export type DeskPhase = "login-only" | "enter" | "desk" | "held" | "exit"
 
 export type ContentWidgetId = "category" | "subs" | "charges" | "compose"
 
-export type WidgetId = "login" | ContentWidgetId
+export type WidgetId = ContentWidgetId
 
 export const CONTENT_WIDGET_IDS = [
   "category",
@@ -16,7 +16,6 @@ export const WIDGET_FOUR_STATES = ["idle", "hover", "act", "held"] as const
 export type WidgetFourState = (typeof WIDGET_FOUR_STATES)[number]
 
 export const WIDGET_SCENE_IDS = {
-  login: "widget-login",
   category: "widget-category",
   subs: "widget-subs",
   charges: "widget-charges",
