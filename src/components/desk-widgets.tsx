@@ -1,9 +1,36 @@
-import type { ReactNode } from "react"
+import { useState, type FormEvent, type ReactNode } from "react"
+
+import {
+  CATEGORIES,
+  categoryLabels,
+  type Category,
+  type Currency,
+  type Interval,
+  type Status,
+  type SubscriptionType,
+} from "@/lib/catalog"
+import {
+  EMPTY_INK,
+  abbreviateName,
+  categorySummaries,
+  compactAmount,
+  compactDate,
+} from "@/lib/desk-ink"
 
 const INK = "#2a2118"
 const PAPER = "#f3ead3"
+const WOOD_DOT = "#c4a06a"
 
 const CHIP = ["#e27898", "#7eb8d4", "#6a9a4e", "#d4a84b", "#c48a6a", "#8a7bb8"]
+
+const CHIP_SLOTS = [
+  { x: -70, y: -40, rot: -18, w: 88, h: 70 },
+  { x: 10, y: -48, rot: 8, w: 92, h: 64 },
+  { x: 78, y: -8, rot: 16, w: 80, h: 62 },
+  { x: -40, y: 28, rot: -8, w: 96, h: 68 },
+  { x: 48, y: 36, rot: 6, w: 86, h: 60 },
+  { x: -90, y: 8, rot: -22, w: 70, h: 54 },
+] as const
 
 export const WIDGET_SLOTS = {
   login: { x: 800, y: 430 },
@@ -13,44 +40,45 @@ export const WIDGET_SLOTS = {
   compose: { x: 400, y: 210 },
 } as const
 
-function Face({
-  x,
-  y,
-  width,
-  height,
-  active,
-  onWidgetClick,
-  children,
-}: {
-  x: number
-  y: number
-  width: number
-  height: number
-  active: boolean
-  onWidgetClick?: () => void
-  children: ReactNode
-}) {
+type SubRow = {
+  id: string
+  name: string
+  amountCents: number
+  currency: Currency
+}
+
+type ChargeRow = {
+  id: string
+  name: string
+  amountCents: number
+  currency: Currency
+  date: string
+}
+
+export type ComposeDraft = {
+  name: string
+  amount: number
+  currency: Currency
+  category: Category
+  notes: string
+  type: SubscriptionType
+  interval: Interval
+  intervalDays: number
+  chargeDate: string
+  status: Status
+}
+
+function LoginFace({ children }: { children: ReactNode }) {
   return (
     <foreignObject
-      x={x}
-      y={y}
-      width={width}
-      height={height}
-      className={active ? "widget-face is-open" : "widget-face"}
-      pointerEvents={active ? "auto" : "none"}
-      onPointerUp={(event) => {
-        const node = event.target
-        if (node instanceof Element) {
-          if (node.closest("button, input, select, textarea, a, label")) {
-            event.stopPropagation()
-            return
-          }
-        }
-        event.stopPropagation()
-        onWidgetClick?.()
-      }}
+      x={-130}
+      y={24}
+      width={260}
+      height={90}
+      className="login-face"
+      pointerEvents="auto"
     >
-      <div className="widget-face-inner">{children}</div>
+      <div className="login-face-inner">{children}</div>
     </foreignObject>
   )
 }
@@ -103,9 +131,7 @@ export function LoginWidget({ children }: { children: ReactNode }) {
         >
           手帐
         </text>
-        <Face x={-130} y={24} width={260} height={90} active>
-          {children}
-        </Face>
+        <LoginFace>{children}</LoginFace>
       </g>
     </g>
   )
@@ -114,20 +140,35 @@ export function LoginWidget({ children }: { children: ReactNode }) {
 export function CategoryWidget({
   held,
   onPick,
-  children,
+  items,
 }: {
   held: boolean
   onPick: () => void
-  children: ReactNode
+  items: Array<{ category: string }>
 }) {
-  const chips = [
-    { x: -70, y: -40, rot: -18, w: 88, h: 70 },
-    { x: 10, y: -48, rot: 8, w: 92, h: 64 },
-    { x: 78, y: -8, rot: 16, w: 80, h: 62 },
-    { x: -40, y: 28, rot: -8, w: 96, h: 68 },
-    { x: 48, y: 36, rot: 6, w: 86, h: 60 },
-    { x: -90, y: 8, rot: -22, w: 70, h: 54 },
-  ]
+  const [selected, setSelected] = useState<Category | null>(null)
+  const summaries = categorySummaries(items)
+  const chips =
+    summaries.length === 0
+      ? [
+          {
+            category: null as Category | null,
+            count: 0,
+            label: EMPTY_INK.category,
+            slot: CHIP_SLOTS[0],
+            fill: "#eadcc0",
+          },
+        ]
+      : summaries.slice(0, CHIP_SLOTS.length).map((row, index) => ({
+          category: row.category,
+          count: row.count,
+          label: held
+            ? `${categoryLabels[row.category]} ${row.count}`
+            : categoryLabels[row.category],
+          slot: CHIP_SLOTS[index],
+          fill: CHIP[CATEGORIES.indexOf(row.category) % CHIP.length],
+        }))
+
   return (
     <g
       transform={`translate(${WIDGET_SLOTS.category.x} ${WIDGET_SLOTS.category.y})`}
@@ -142,21 +183,45 @@ export function CategoryWidget({
           onPick()
         }}
       >
-        {chips.map((chip, index) => (
-          <rect
-            key={chip.x}
-            x={chip.x}
-            y={chip.y}
-            width={chip.w}
-            height={chip.h}
-            rx="14"
-            transform={`rotate(${chip.rot} ${chip.x + chip.w / 2} ${chip.y + chip.h / 2})`}
-            fill={CHIP[index % CHIP.length]}
-            stroke={INK}
-            strokeWidth="2.2"
-            filter="url(#widgetShadow)"
-          />
-        ))}
+        {chips.map((chip) => {
+          const active = held && chip.category && selected === chip.category
+          const originX = chip.slot.x + chip.slot.w / 2
+          const originY = chip.slot.y + chip.slot.h / 2
+          const scale = held ? 1.08 : 1
+          return (
+            <g
+              key={`${chip.slot.x}-${chip.label}`}
+              transform={`rotate(${chip.slot.rot} ${originX} ${originY}) translate(${originX} ${originY}) scale(${scale}) translate(${-originX} ${-originY})`}
+              onPointerUp={(event) => {
+                if (!held || !chip.category) return
+                event.stopPropagation()
+                setSelected(chip.category)
+              }}
+            >
+              <rect
+                x={chip.slot.x}
+                y={chip.slot.y}
+                width={chip.slot.w}
+                height={chip.slot.h}
+                rx="14"
+                fill={chip.fill}
+                stroke={INK}
+                strokeWidth={active ? 3.2 : 2.2}
+                filter="url(#widgetShadow)"
+              />
+              <text
+                x={originX}
+                y={originY + 5}
+                textAnchor="middle"
+                fill={INK}
+                fontSize={chip.category ? 13 : 12}
+                fontFamily="Noto Serif SC, serif"
+              >
+                {chip.label}
+              </text>
+            </g>
+          )
+        })}
         <text
           x="0"
           y="108"
@@ -167,16 +232,6 @@ export function CategoryWidget({
         >
           分类
         </text>
-        <Face
-          x={-120}
-          y={-90}
-          width={250}
-          height={200}
-          active={held}
-          onWidgetClick={onPick}
-        >
-          {children}
-        </Face>
       </g>
     </g>
   )
@@ -185,12 +240,22 @@ export function CategoryWidget({
 export function SubsWidget({
   held,
   onPick,
-  children,
+  items,
+  onEdit,
+  onDelete,
 }: {
   held: boolean
   onPick: () => void
-  children: ReactNode
+  items: SubRow[]
+  onEdit: (id: string) => void
+  onDelete: (id: string) => void
 }) {
+  const [page, setPage] = useState(0)
+  const pageSize = held ? 3 : 2
+  const pageCount = Math.max(1, Math.ceil(items.length / pageSize))
+  const safePage = page % pageCount
+  const rows = items.slice(safePage * pageSize, safePage * pageSize + pageSize)
+
   return (
     <g transform={`translate(${WIDGET_SLOTS.subs.x} ${WIDGET_SLOTS.subs.y})`}>
       <g
@@ -226,12 +291,20 @@ export function SubsWidget({
           strokeWidth="2.2"
           transform="rotate(3)"
         />
-        <path
-          d="M -108,-92 h 18 v 36 h -18 a 8,8 0 0 1 -8,-8 v -20 a 8,8 0 0 1 8,-8 z"
-          fill="#7eb8d4"
-          stroke={INK}
-          strokeWidth="2"
-        />
+        <g
+          onPointerUp={(event) => {
+            if (!held || items.length <= pageSize) return
+            event.stopPropagation()
+            setPage((current) => (current + 1) % pageCount)
+          }}
+        >
+          <path
+            d="M -108,-92 h 18 v 36 h -18 a 8,8 0 0 1 -8,-8 v -20 a 8,8 0 0 1 8,-8 z"
+            fill="#7eb8d4"
+            stroke={INK}
+            strokeWidth="2"
+          />
+        </g>
         <rect
           x="-96"
           y="-92"
@@ -243,11 +316,68 @@ export function SubsWidget({
           strokeWidth="2.4"
           filter="url(#widgetShadow)"
         />
-        <path
-          d="M -78,-70 h 132 M -78,-48 h 118 M -78,-26 h 124"
-          stroke="#d5c7ae"
-          strokeWidth="1.6"
-        />
+        {rows.length === 0 ? (
+          <text
+            x="-12"
+            y="-20"
+            textAnchor="middle"
+            fill={INK}
+            fontSize="16"
+            fontFamily="Noto Serif SC, serif"
+          >
+            {EMPTY_INK.subs}
+          </text>
+        ) : (
+          rows.map((row, index) => {
+            const y = -64 + index * (held ? 42 : 36)
+            return (
+              <g
+                key={row.id}
+                onPointerUp={(event) => {
+                  if (!held) return
+                  event.stopPropagation()
+                  onEdit(row.id)
+                }}
+              >
+                <text
+                  x="-78"
+                  y={y}
+                  fill={INK}
+                  fontSize={held ? 14 : 15}
+                  fontFamily="Noto Serif SC, serif"
+                >
+                  {abbreviateName(row.name, held ? 9 : 8)}
+                </text>
+                {held ? (
+                  <>
+                    <text
+                      x="-78"
+                      y={y + 16}
+                      fill="#5c4a38"
+                      fontSize="11"
+                      fontFamily="Noto Serif SC, serif"
+                    >
+                      {compactAmount(row.amountCents, row.currency)}
+                    </text>
+                    <text
+                      x="52"
+                      y={y}
+                      fill="#8a2f2f"
+                      fontSize="12"
+                      fontFamily="Noto Serif SC, serif"
+                      onPointerUp={(event) => {
+                        event.stopPropagation()
+                        onDelete(row.id)
+                      }}
+                    >
+                      删
+                    </text>
+                  </>
+                ) : null}
+              </g>
+            )
+          })
+        )}
         <text
           x="-12"
           y="150"
@@ -258,16 +388,6 @@ export function SubsWidget({
         >
           订阅
         </text>
-        <Face
-          x={-90}
-          y={-80}
-          width={156}
-          height={190}
-          active={held}
-          onWidgetClick={onPick}
-        >
-          {children}
-        </Face>
       </g>
     </g>
   )
@@ -276,17 +396,18 @@ export function SubsWidget({
 export function ChargesWidget({
   held,
   onPick,
-  children,
+  charges,
 }: {
   held: boolean
   onPick: () => void
-  children: ReactNode
+  charges: ChargeRow[]
 }) {
-  const strips = [
-    { y: -48, fill: "#f3e3c2", rot: -2 },
-    { y: -8, fill: "#eadcc0", rot: 1.4 },
-    { y: 32, fill: "#f6eedc", rot: -1 },
-  ]
+  const fills = ["#f3e3c2", "#eadcc0", "#f6eedc", "#f3ead3", "#eadcc0"]
+  const rots = [-2, 1.4, -1, 0.8, -1.2]
+  const visible = charges.slice(0, held ? 5 : 3)
+  const startY = held ? -58 : -48
+  const gap = held ? 28 : 40
+
   return (
     <g
       transform={`translate(${WIDGET_SLOTS.charges.x} ${WIDGET_SLOTS.charges.y})`}
@@ -301,35 +422,82 @@ export function ChargesWidget({
           onPick()
         }}
       >
-        {strips.map((strip) => (
-          <g
-            key={strip.y}
-            transform={`rotate(${strip.rot})`}
-            filter="url(#widgetShadow)"
-          >
+        {visible.length === 0 ? (
+          <g transform="rotate(-2)" filter="url(#widgetShadow)">
             <rect
               x="-240"
-              y={strip.y}
+              y="-18"
               width="480"
-              height="34"
+              height="36"
               rx="6"
-              fill={strip.fill}
+              fill="#f3e3c2"
               stroke={INK}
               strokeWidth="2"
             />
             <circle
               cx="-214"
-              cy={strip.y + 17}
+              cy="0"
               r="7"
               fill={WOOD_DOT}
               stroke={INK}
               strokeWidth="1.4"
             />
+            <text
+              x="0"
+              y="6"
+              textAnchor="middle"
+              fill={INK}
+              fontSize="16"
+              fontFamily="Noto Serif SC, serif"
+            >
+              {EMPTY_INK.charges}
+            </text>
           </g>
-        ))}
+        ) : (
+          visible.map((charge, index) => {
+            const y = startY + index * gap
+            return (
+              <g
+                key={charge.id}
+                transform={`rotate(${rots[index] ?? 0})`}
+                filter="url(#widgetShadow)"
+              >
+                <rect
+                  x="-240"
+                  y={y}
+                  width="480"
+                  height={held ? 26 : 34}
+                  rx="6"
+                  fill={fills[index] ?? PAPER}
+                  stroke={INK}
+                  strokeWidth="2"
+                />
+                <circle
+                  cx="-214"
+                  cy={y + (held ? 13 : 17)}
+                  r="7"
+                  fill={WOOD_DOT}
+                  stroke={INK}
+                  strokeWidth="1.4"
+                />
+                <text
+                  x="-196"
+                  y={y + (held ? 18 : 22)}
+                  fill={INK}
+                  fontSize={held ? 13 : 14}
+                  fontFamily="Noto Serif SC, serif"
+                >
+                  {held
+                    ? `${abbreviateName(charge.name, 10)}  ${compactDate(charge.date)}  ${compactAmount(charge.amountCents, charge.currency)}`
+                    : `${compactDate(charge.date)}   ${compactAmount(charge.amountCents, charge.currency)}`}
+                </text>
+              </g>
+            )
+          })
+        )}
         <text
           x="0"
-          y="86"
+          y={held ? 96 : 86}
           textAnchor="middle"
           fill={INK}
           fontSize="18"
@@ -337,31 +505,21 @@ export function ChargesWidget({
         >
           扣费
         </text>
-        <Face
-          x={-230}
-          y={-58}
-          width={460}
-          height={120}
-          active={held}
-          onWidgetClick={onPick}
-        >
-          {children}
-        </Face>
       </g>
     </g>
   )
 }
 
-const WOOD_DOT = "#c4a06a"
-
 export function ComposeWidget({
   held,
   onPick,
+  idleLine,
   children,
 }: {
   held: boolean
   onPick: () => void
-  children: ReactNode
+  idleLine: string
+  children?: ReactNode
 }) {
   return (
     <g
@@ -403,6 +561,19 @@ export function ComposeWidget({
             stroke="#d4c37a"
             strokeWidth="1.5"
           />
+          {held ? (
+            children
+          ) : (
+            <text
+              x="-90"
+              y="-84"
+              fill={INK}
+              fontSize="16"
+              fontFamily="Noto Serif SC, serif"
+            >
+              {idleLine}
+            </text>
+          )}
         </g>
         <g transform="translate(128 40) rotate(18)">
           <rect
@@ -432,17 +603,187 @@ export function ComposeWidget({
         >
           记一笔
         </text>
-        <Face
-          x={-108}
-          y={-118}
-          width={216}
-          height={236}
-          active={held}
-          onWidgetClick={onPick}
-        >
-          {children}
-        </Face>
       </g>
+    </g>
+  )
+}
+
+function InkChip({
+  x,
+  y,
+  label,
+  active,
+  onTap,
+}: {
+  x: number
+  y: number
+  label: string
+  active: boolean
+  onTap: () => void
+}) {
+  return (
+    <g
+      transform={`translate(${x} ${y})`}
+      onPointerUp={(event) => {
+        event.stopPropagation()
+        onTap()
+      }}
+    >
+      <rect
+        x="-22"
+        y="-11"
+        width="44"
+        height="20"
+        rx="6"
+        fill={active ? "#e8c49a" : "#f6eedc"}
+        stroke={INK}
+        strokeWidth={active ? 2.2 : 1.4}
+      />
+      <text
+        x="0"
+        y="4"
+        textAnchor="middle"
+        fill={INK}
+        fontSize="10"
+        fontFamily="Noto Serif SC, serif"
+      >
+        {label}
+      </text>
+    </g>
+  )
+}
+
+export function ComposeHeldInk({
+  form,
+  editing,
+  submitting,
+  onChange,
+  onSubmit,
+  onCancel,
+}: {
+  form: ComposeDraft
+  editing: boolean
+  submitting: boolean
+  onChange: (patch: Partial<ComposeDraft>) => void
+  onSubmit: () => void
+  onCancel: () => void
+}) {
+  const cats = [
+    ...CATEGORIES.filter((item) => item === form.category),
+    ...CATEGORIES.filter((item) => item !== form.category),
+  ].slice(0, 8)
+
+  return (
+    <g>
+      <foreignObject
+        x={-96}
+        y={-98}
+        width={192}
+        height={66}
+        className="compose-face"
+        fill="none"
+        pointerEvents="auto"
+        onPointerUp={(event) => event.stopPropagation()}
+      >
+        <form
+          className="compose-lines"
+          onSubmit={(event: FormEvent) => {
+            event.preventDefault()
+            onSubmit()
+          }}
+        >
+          <input
+            aria-label="名称"
+            placeholder="名称"
+            required
+            value={form.name}
+            onChange={(event) => onChange({ name: event.target.value })}
+          />
+          <input
+            aria-label="金额"
+            placeholder="金额"
+            inputMode="decimal"
+            required
+            value={Number.isFinite(form.amount) ? String(form.amount) : "0"}
+            onChange={(event) =>
+              onChange({
+                amount: Number.parseFloat(event.target.value) || 0,
+              })
+            }
+          />
+          <input
+            aria-label="下次扣费"
+            placeholder="YYYY-MM-DD"
+            required
+            value={form.chargeDate}
+            onChange={(event) => onChange({ chargeDate: event.target.value })}
+          />
+        </form>
+      </foreignObject>
+      <InkChip
+        x={-54}
+        y={-18}
+        label="$"
+        active={form.currency === "USD"}
+        onTap={() => onChange({ currency: "USD" })}
+      />
+      <InkChip
+        x={-6}
+        y={-18}
+        label="¥"
+        active={form.currency === "CNY"}
+        onTap={() => onChange({ currency: "CNY" })}
+      />
+      <InkChip
+        x={42}
+        y={-18}
+        label="月"
+        active={form.interval === "monthly"}
+        onTap={() => onChange({ type: "recurring", interval: "monthly" })}
+      />
+      <InkChip
+        x={90}
+        y={-18}
+        label="年"
+        active={form.interval === "yearly"}
+        onTap={() => onChange({ type: "recurring", interval: "yearly" })}
+      />
+      {cats.map((category, index) => (
+        <InkChip
+          key={category}
+          x={-72 + (index % 4) * 48}
+          y={12 + Math.floor(index / 4) * 26}
+          label={categoryLabels[category].slice(0, 3)}
+          active={form.category === category}
+          onTap={() => onChange({ category })}
+        />
+      ))}
+      <text
+        x="-70"
+        y="78"
+        fill={INK}
+        fontSize="13"
+        fontFamily="Noto Serif SC, serif"
+        onPointerUp={(event) => {
+          event.stopPropagation()
+          onCancel()
+        }}
+      >
+        返回
+      </text>
+      <text
+        x="40"
+        y="78"
+        fill={INK}
+        fontSize="13"
+        fontFamily="Noto Serif SC, serif"
+        onPointerUp={(event) => {
+          event.stopPropagation()
+          onSubmit()
+        }}
+      >
+        {submitting ? "保存中…" : editing ? "更新" : "保存"}
+      </text>
     </g>
   )
 }
@@ -462,6 +803,7 @@ export function DeskInk({
   return (
     <g id="desk-ink" pointerEvents="none">
       <text
+        id="desk-ink-total"
         x="800"
         y="64"
         textAnchor="middle"

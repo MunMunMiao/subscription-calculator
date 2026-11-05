@@ -34,20 +34,37 @@ test.describe("Widget desk smoke", () => {
     await expect(page.locator("#widget-subs")).toBeVisible()
     await expect(page.locator("#widget-charges")).toBeVisible()
     await expect(page.locator("#widget-compose")).toBeVisible()
+    await expect(page.locator("#desk-ink-total")).toHaveText(
+      /[$¥]\d+\.\d{2} \/ 月/
+    )
+    await expect(page.locator("#desk-ink-total")).not.toContainText(/iCloud|年/)
+    await expect(page.locator("#widget-category")).toContainText(
+      /流媒体|软件|云服务/
+    )
+    await expect(page.locator("#widget-subs")).toContainText(/Netflix|GitHub/)
+    await expect(page.locator("#widget-charges")).toContainText(/\d{2}\/\d{2}/)
+    await expect(page.locator("#widget-compose")).toContainText("记一笔")
+    await expect(page.locator("#widget-category foreignObject")).toHaveCount(0)
+    await expect(page.locator("#widget-subs foreignObject")).toHaveCount(0)
+    await expect(page.locator("#widget-charges foreignObject")).toHaveCount(0)
+    await expect(page.locator("#widget-compose foreignObject")).toHaveCount(0)
 
     await page.locator("#widget-category").click()
     await expect(root).toHaveAttribute("data-phase", "held")
     await expect(root).toHaveAttribute("data-held", "category")
 
-    await page.locator("#widget-category").click()
+    const hit = page.locator("#desk-hit")
+    const box = await hit.boundingBox()
+    expect(box).toBeTruthy()
+    await page.mouse.click(
+      box!.x + box!.width * 0.5,
+      box!.y + box!.height * 0.42
+    )
     await expect(root).toHaveAttribute("data-phase", "desk")
     await expect(root).toHaveAttribute("data-held", "")
 
     await page.locator("#widget-subs").click()
     await expect(root).toHaveAttribute("data-held", "subs")
-    const hit = page.locator("#desk-hit")
-    const box = await hit.boundingBox()
-    expect(box).toBeTruthy()
     await page.mouse.click(
       box!.x + box!.width * 0.5,
       box!.y + box!.height * 0.42
@@ -107,12 +124,17 @@ test.describe("Widget desk smoke", () => {
     for (let i = 0; i < 2; i++) {
       await page.locator("#widget-compose").click()
       await expect(root).toHaveAttribute("data-held", "compose")
+      await expect(
+        page.locator("#widget-compose foreignObject.compose-face")
+      ).toHaveCount(1)
+      await expect(page.locator(".widget-face.is-open")).toHaveCount(0)
       await page.mouse.click(
         deskBox!.x + deskBox!.width * 0.5,
         deskBox!.y + deskBox!.height * 0.42
       )
       await expect(root).toHaveAttribute("data-phase", "desk")
       await expect(root).toHaveAttribute("data-held", "")
+      await expect(page.locator("#widget-compose foreignObject")).toHaveCount(0)
     }
 
     await expect(slot).toHaveAttribute(

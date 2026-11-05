@@ -179,24 +179,54 @@
   pointer-events: none;
 }
 
-.widget-face {
+.login-face,
+.login-face-inner {
   overflow: hidden;
-  opacity: 0;
 }
 
-.widget-face.is-open {
-  opacity: 1;
-  overflow: auto;
-}
-
-.widget-face-inner {
+.login-face-inner {
   width: 100%;
   height: 100%;
   box-sizing: border-box;
-  padding: 0.2rem 0.35rem;
-  color: #2a2118;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+foreignObject.compose-face {
+  overflow: visible;
+  background: transparent;
+}
+
+.compose-lines {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  background: transparent;
+}
+
+.compose-lines input {
+  display: block;
+  width: 100%;
+  height: 20px;
+  margin: 0;
+  padding: 0 2px;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  appearance: none;
   font-family: "Noto Serif SC", serif;
-  font-size: 0.72rem;
+  font-size: 14px;
+  line-height: 20px;
+  color: #2a2118;
+}
+
+.compose-lines input:focus {
+  outline: none;
 }
 
 .login-actions {
@@ -206,13 +236,13 @@
   gap: 0.4rem;
 }
 
-.widget-face .github-login {
+.login-face .github-login {
   margin-top: 0;
   padding: 0.28rem 0.8rem 0.28rem 0.45rem;
   font-size: 0.95rem;
 }
 
-.widget-face .github-login-icon {
+.login-face .github-login-icon {
   width: 1.35rem;
   height: 1.35rem;
 }

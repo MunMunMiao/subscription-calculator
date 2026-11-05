@@ -1,43 +1,28 @@
 "use client"
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import {
-  useReducer,
-  useRef,
-  useState,
-  type Dispatch,
-  type FormEvent,
-  type SetStateAction,
-} from "react"
+import { useReducer, useRef, useState, type FormEvent } from "react"
 import { toast } from "sonner"
 
 import { DeskScene } from "@/components/desk-scene"
 import {
   CategoryWidget,
   ChargesWidget,
+  ComposeHeldInk,
   ComposeWidget,
   DeskInk,
   LoginWidget,
   SubsWidget,
 } from "@/components/desk-widgets"
 import {
-  CATEGORIES,
-  CURRENCIES,
-  INTERVALS,
-  STATUSES,
-  SUBSCRIPTION_TYPES,
-  categoryLabel,
-  categoryLabels,
-  intervalLabels,
   isCategory,
-  statusLabels,
-  typeLabels,
   type Category,
   type Currency,
   type Interval,
   type Status,
   type SubscriptionType,
 } from "@/lib/catalog"
+import { EMPTY_INK, formatMonthlyBanner } from "@/lib/desk-ink"
 import { useGSAP } from "@/lib/gsap"
 import { authClient } from "@/lib/auth-client"
 import {
@@ -46,10 +31,8 @@ import {
   e2ePreviewItems,
   isE2ePreviewUser,
 } from "@/lib/e2e-preview"
-import { centsToAmount, formatMoney } from "@/lib/money"
+import { centsToAmount } from "@/lib/money"
 import {
-  categoryBreakdown,
-  sixMonthForecast,
   toISODate,
   totalsByCurrency,
   upcomingCharges,
@@ -110,18 +93,6 @@ const EMPTY_FORM: FormValues = {
   status: "active",
 }
 
-const PIE_COLORS = [
-  "#e27898",
-  "#7eb8d4",
-  "#6a9a4e",
-  "#d4a84b",
-  "#c48a6a",
-  "#8a7bb8",
-  "#e38a6c",
-  "#5f7f3c",
-  "#4a7ab8",
-]
-
 function recordToForm(item: SubscriptionRecord): FormValues {
   return {
     name: item.name,
@@ -180,8 +151,6 @@ export function DeskApp({ user }: { user: DeskUser }) {
     (item) => item.currency === activeCurrency
   )
   const charges = upcomingCharges(items, now, 90)
-  const slices = categoryBreakdown(items, activeCurrency)
-  const forecast = sixMonthForecast(items, activeCurrency, now)
 
   const invalidate = () =>
     queryClient.invalidateQueries({ queryKey: orpc.subscriptions.key() })
@@ -216,17 +185,6 @@ export function DeskApp({ user }: { user: DeskUser }) {
     orpc.subscriptions.remove.mutationOptions({
       onSuccess: async () => {
         toast.success("已删除")
-        await invalidate()
-      },
-      onError: (error) => toast.error(error.message),
-    })
-  )
-
-  const seedMutation = useMutation(
-    orpc.subscriptions.seedDemo.mutationOptions({
-      onSuccess: async (result) => {
-        if (result.seeded) toast.success("已载入示例")
-        else toast.message("已有记录")
         await invalidate()
       },
       onError: (error) => toast.error(error.message),
@@ -335,8 +293,8 @@ export function DeskApp({ user }: { user: DeskUser }) {
     pick("compose")
   }
 
-  function submitForm(event: FormEvent) {
-    event.preventDefault()
+  function submitForm(event?: FormEvent) {
+    event?.preventDefault()
     const payload = {
       name: form.name,
       amount: form.amount,
@@ -384,19 +342,11 @@ export function DeskApp({ user }: { user: DeskUser }) {
     createMutation.mutate(payload)
   }
 
-  function seed() {
-    if (preview) {
-      setLocalItems(e2ePreviewItems(now) as SubscriptionRecord[])
-      toast.success("已载入示例")
-      return
-    }
-    seedMutation.mutate(undefined)
-  }
-
   const onDesk = desk.phase === "desk" || desk.phase === "held"
-  const summary = items.length
-    ? `${formatMoney(totals?.monthlyRecurring ?? 0, activeCurrency)} / 月`
-    : "手帐"
+  const summary = formatMonthlyBanner(
+    totals?.monthlyRecurring ?? 0,
+    activeCurrency
+  )
 
   return (
     <div
@@ -418,60 +368,56 @@ export function DeskApp({ user }: { user: DeskUser }) {
         <CategoryWidget
           held={desk.held === "category"}
           onPick={() => pick("category")}
-        >
-          <ChartFace
-            loading={listQuery.isLoading && !preview}
-            slices={slices}
-            forecast={forecast}
-            currency={activeCurrency}
-          />
-        </CategoryWidget>
-        <SubsWidget held={desk.held === "subs"} onPick={() => pick("subs")}>
-          <ListFace
-            loading={listQuery.isLoading && !preview}
-            items={items}
-            onEdit={openEdit}
-            onDelete={(item) => {
-              if (!window.confirm(`删除「${item.name}」？`)) return
-              if (preview) {
-                setLocalItems((current) =>
-                  current.filter((row) => row.id !== item.id)
-                )
-                toast.success("已删除")
-                return
-              }
-              removeMutation.mutate({ id: item.id })
-            }}
-            onCompose={() => pick("compose")}
-            onSeed={seed}
-            seeding={seedMutation.isPending}
-          />
-        </SubsWidget>
+          items={items}
+        />
+        <SubsWidget
+          held={desk.held === "subs"}
+          onPick={() => pick("subs")}
+          items={items}
+          onEdit={(id) => {
+            const item = items.find((row) => row.id === id)
+            if (item) openEdit(item)
+          }}
+          onDelete={(id) => {
+            const item = items.find((row) => row.id === id)
+            if (!item) return
+            if (!window.confirm(`删除「${item.name}」？`)) return
+            if (preview) {
+              setLocalItems((current) =>
+                current.filter((row) => row.id !== item.id)
+              )
+              toast.success("已删除")
+              return
+            }
+            removeMutation.mutate({ id: item.id })
+          }}
+        />
         <ChargesWidget
           held={desk.held === "charges"}
           onPick={() => pick("charges")}
-        >
-          <UpcomingFace
-            loading={listQuery.isLoading && !preview}
-            charges={charges}
-          />
-        </ChargesWidget>
+          charges={charges}
+        />
         <ComposeWidget
           held={desk.held === "compose"}
           onPick={() => pick("compose")}
+          idleLine={form.name.trim() || EMPTY_INK.compose}
         >
-          <ComposeFace
-            form={form}
-            setForm={setForm}
-            editing={Boolean(editing)}
-            submitting={createMutation.isPending || updateMutation.isPending}
-            onSubmit={submitForm}
-            onCancel={() => {
-              setEditing(undefined)
-              setForm(EMPTY_FORM)
-              dispatch({ type: "put-down" })
-            }}
-          />
+          {desk.held === "compose" ? (
+            <ComposeHeldInk
+              form={form}
+              editing={Boolean(editing)}
+              submitting={createMutation.isPending || updateMutation.isPending}
+              onChange={(patch) =>
+                setForm((current) => ({ ...current, ...patch }))
+              }
+              onSubmit={() => submitForm()}
+              onCancel={() => {
+                setEditing(undefined)
+                setForm(EMPTY_FORM)
+                dispatch({ type: "put-down" })
+              }}
+            />
+          ) : null}
         </ComposeWidget>
         <DeskInk
           visible={onDesk}
@@ -515,445 +461,5 @@ function LandingFace({
         </button>
       ) : null}
     </div>
-  )
-}
-
-function EmptyInk({
-  onCompose,
-  onSeed,
-  seeding,
-}: {
-  onCompose: () => void
-  onSeed: () => void
-  seeding?: boolean
-}) {
-  return (
-    <div className="empty-ink">
-      <p>还没有记录</p>
-      <div className="ink-row">
-        <button type="button" className="ink-btn" onClick={onCompose}>
-          记一笔
-        </button>
-        <button
-          type="button"
-          className="ink-btn ink-btn-ghost"
-          onClick={onSeed}
-          disabled={seeding}
-        >
-          {seeding ? "载入中…" : "载入示例"}
-        </button>
-      </div>
-    </div>
-  )
-}
-
-function ChartFace({
-  loading,
-  slices,
-  forecast,
-  currency,
-}: {
-  loading: boolean
-  slices: Array<{ category: string; amountCents: number }>
-  forecast: Array<{ month: string; amountCents: number }>
-  currency: Currency
-}) {
-  if (loading) return <p className="ink-muted">读取中…</p>
-  const total = slices.reduce((sum, slice) => sum + slice.amountCents, 0)
-  const maxBar = Math.max(1, ...forecast.map((item) => item.amountCents))
-  const arcs = slices.map((slice, index) => {
-    const start = slices
-      .slice(0, index)
-      .reduce(
-        (sum, item) => sum + (total === 0 ? 0 : item.amountCents / total),
-        0
-      )
-    const fraction = total === 0 ? 0 : slice.amountCents / total
-    return {
-      category: slice.category,
-      amountCents: slice.amountCents,
-      start,
-      end: start + fraction,
-      color: PIE_COLORS[index % PIE_COLORS.length],
-    }
-  })
-
-  return (
-    <div className="chart-face">
-      {slices.length === 0 ? (
-        <p className="ink-muted">暂无分类数据</p>
-      ) : (
-        <svg viewBox="0 0 240 160" className="ink-chart" aria-hidden="true">
-          {arcs.map((arc) => (
-            <path
-              key={arc.category}
-              d={donutSlice(120, 78, 52, 22, arc.start, arc.end)}
-              fill={arc.color}
-              stroke={INK_SOFT}
-              strokeWidth="1.6"
-            />
-          ))}
-        </svg>
-      )}
-      <ul className="legend">
-        {slices.map((slice, index) => (
-          <li key={slice.category}>
-            <span
-              className="swatch"
-              style={{ background: PIE_COLORS[index % PIE_COLORS.length] }}
-            />
-            {categoryLabel(slice.category)}
-            <em>{formatMoney(slice.amountCents, currency)}</em>
-          </li>
-        ))}
-      </ul>
-      <div className="bars">
-        {forecast.map((item) => (
-          <div key={item.month} className="bar-col">
-            <div
-              className="bar"
-              style={{ height: `${(item.amountCents / maxBar) * 72}px` }}
-            />
-            <span>{item.month.slice(5)}</span>
-          </div>
-        ))}
-      </div>
-    </div>
-  )
-}
-
-const INK_SOFT = "#2a2118"
-
-function polar(cx: number, cy: number, r: number, t: number) {
-  const a = (t - 0.25) * Math.PI * 2
-  return { x: cx + Math.cos(a) * r, y: cy + Math.sin(a) * r }
-}
-
-function donutSlice(
-  cx: number,
-  cy: number,
-  rOuter: number,
-  rInner: number,
-  start: number,
-  end: number
-) {
-  const span = Math.min(end - start, 0.9999)
-  const stop = start + span
-  const large = span > 0.5 ? 1 : 0
-  const a0 = polar(cx, cy, rOuter, start)
-  const a1 = polar(cx, cy, rOuter, stop)
-  const b0 = polar(cx, cy, rInner, stop)
-  const b1 = polar(cx, cy, rInner, start)
-  return `M ${a0.x} ${a0.y} A ${rOuter} ${rOuter} 0 ${large} 1 ${a1.x} ${a1.y} L ${b0.x} ${b0.y} A ${rInner} ${rInner} 0 ${large} 0 ${b1.x} ${b1.y} Z`
-}
-
-function ListFace({
-  loading,
-  items,
-  onEdit,
-  onDelete,
-  onCompose,
-  onSeed,
-  seeding,
-}: {
-  loading: boolean
-  items: SubscriptionRecord[]
-  onEdit: (item: SubscriptionRecord) => void
-  onDelete: (item: SubscriptionRecord) => void
-  onCompose: () => void
-  onSeed: () => void
-  seeding: boolean
-}) {
-  if (loading) return <p className="ink-muted">读取中…</p>
-  if (items.length === 0) {
-    return <EmptyInk onCompose={onCompose} onSeed={onSeed} seeding={seeding} />
-  }
-  return (
-    <ul className="ink-list">
-      {items.map((item) => (
-        <li key={item.id}>
-          <button
-            type="button"
-            className="ink-list-main"
-            onClick={() => onEdit(item)}
-          >
-            <strong>{item.name}</strong>
-            <span>
-              {formatMoney(item.amountCents, item.currency)} ·{" "}
-              {item.type === "recurring" && item.interval
-                ? item.interval === "custom"
-                  ? `每 ${item.intervalDays} 天`
-                  : intervalLabels[item.interval]
-                : typeLabels[item.type]}
-            </span>
-          </button>
-          <button
-            type="button"
-            className="ink-text-btn danger"
-            onClick={() => onDelete(item)}
-          >
-            删除
-          </button>
-        </li>
-      ))}
-    </ul>
-  )
-}
-
-function UpcomingFace({
-  loading,
-  charges,
-}: {
-  loading: boolean
-  charges: ReturnType<typeof upcomingCharges>
-}) {
-  if (loading) return <p className="ink-muted">读取中…</p>
-  if (charges.length === 0) {
-    return <p className="ink-muted">暂无即将扣费</p>
-  }
-  return (
-    <ul className="ink-list">
-      {charges.slice(0, 14).map((charge) => (
-        <li key={charge.id}>
-          <div className="ink-list-main">
-            <strong>{charge.name}</strong>
-            <span>
-              {charge.date} · {categoryLabel(charge.category)}
-            </span>
-          </div>
-          <em>{formatMoney(charge.amountCents, charge.currency)}</em>
-        </li>
-      ))}
-    </ul>
-  )
-}
-
-function ComposeFace({
-  form,
-  setForm,
-  editing,
-  submitting,
-  onSubmit,
-  onCancel,
-}: {
-  form: FormValues
-  setForm: Dispatch<SetStateAction<FormValues>>
-  editing: boolean
-  submitting: boolean
-  onSubmit: (event: FormEvent) => void
-  onCancel: () => void
-}) {
-  function update<K extends keyof FormValues>(key: K, value: FormValues[K]) {
-    setForm((current) => ({ ...current, [key]: value }))
-  }
-
-  return (
-    <form className="ink-form" onSubmit={onSubmit}>
-      <p className="ink-kicker">{editing ? "改一笔" : "记一笔"}</p>
-      <label>
-        名称
-        <input
-          className="ink-field"
-          required
-          value={form.name}
-          onChange={(event) => update("name", event.target.value)}
-        />
-      </label>
-      <div className="ink-split">
-        <label>
-          金额
-          <input
-            className="ink-field"
-            type="number"
-            min="0"
-            step="0.01"
-            required
-            value={Number.isFinite(form.amount) ? form.amount : 0}
-            onChange={(event) =>
-              update("amount", Number.parseFloat(event.target.value) || 0)
-            }
-          />
-        </label>
-        <label>
-          货币
-          <select
-            className="ink-field"
-            value={form.currency}
-            onChange={(event) => {
-              const value = event.target.value
-              if (value === "USD" || value === "CNY") update("currency", value)
-            }}
-          >
-            {CURRENCIES.map((item) => (
-              <option key={item} value={item}>
-                {item}
-              </option>
-            ))}
-          </select>
-        </label>
-      </div>
-      <div className="ink-split">
-        <label>
-          类型
-          <select
-            className="ink-field"
-            value={form.type}
-            onChange={(event) => {
-              const value = event.target.value
-              if (value === "recurring" || value === "one_time") {
-                update("type", value)
-              }
-            }}
-          >
-            {SUBSCRIPTION_TYPES.map((item) => (
-              <option key={item} value={item}>
-                {typeLabels[item]}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          分类
-          <select
-            className="ink-field"
-            value={form.category}
-            onChange={(event) => {
-              const value = event.target.value
-              if (isCategory(value)) update("category", value)
-            }}
-          >
-            {CATEGORIES.map((item) => (
-              <option key={item} value={item}>
-                {categoryLabels[item]}
-              </option>
-            ))}
-          </select>
-        </label>
-      </div>
-      {form.type === "recurring" ? (
-        <div className="ink-split">
-          <label>
-            周期
-            <select
-              className="ink-field"
-              value={form.interval}
-              onChange={(event) => {
-                const value = event.target.value
-                if (
-                  value === "monthly" ||
-                  value === "yearly" ||
-                  value === "weekly" ||
-                  value === "custom"
-                ) {
-                  update("interval", value)
-                }
-              }}
-            >
-              {INTERVALS.map((item) => (
-                <option key={item} value={item}>
-                  {intervalLabels[item]}
-                </option>
-              ))}
-            </select>
-          </label>
-          {form.interval === "custom" ? (
-            <label>
-              天数
-              <input
-                className="ink-field"
-                type="number"
-                min="1"
-                required
-                value={form.intervalDays}
-                onChange={(event) =>
-                  update(
-                    "intervalDays",
-                    Number.parseInt(event.target.value, 10) || 1
-                  )
-                }
-              />
-            </label>
-          ) : (
-            <label>
-              状态
-              <select
-                className="ink-field"
-                value={form.status}
-                onChange={(event) => {
-                  const value = event.target.value
-                  if (
-                    value === "active" ||
-                    value === "paused" ||
-                    value === "cancelled"
-                  ) {
-                    update("status", value)
-                  }
-                }}
-              >
-                {STATUSES.map((item) => (
-                  <option key={item} value={item}>
-                    {statusLabels[item]}
-                  </option>
-                ))}
-              </select>
-            </label>
-          )}
-        </div>
-      ) : (
-        <label>
-          状态
-          <select
-            className="ink-field"
-            value={form.status}
-            onChange={(event) => {
-              const value = event.target.value
-              if (
-                value === "active" ||
-                value === "paused" ||
-                value === "cancelled"
-              ) {
-                update("status", value)
-              }
-            }}
-          >
-            {STATUSES.map((item) => (
-              <option key={item} value={item}>
-                {statusLabels[item]}
-              </option>
-            ))}
-          </select>
-        </label>
-      )}
-      <label>
-        {form.type === "recurring" ? "下次扣费" : "购买日"}
-        <input
-          className="ink-field"
-          type="date"
-          required
-          value={form.chargeDate}
-          onChange={(event) => update("chargeDate", event.target.value)}
-        />
-      </label>
-      <label>
-        备注
-        <input
-          className="ink-field"
-          value={form.notes}
-          onChange={(event) => update("notes", event.target.value)}
-        />
-      </label>
-      <div className="ink-row end">
-        <button
-          type="button"
-          className="ink-btn ink-btn-ghost"
-          onClick={onCancel}
-        >
-          返回
-        </button>
-        <button type="submit" className="ink-btn" disabled={submitting}>
-          {submitting ? "保存中…" : "保存"}
-        </button>
-      </div>
-    </form>
   )
 }
