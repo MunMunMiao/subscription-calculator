@@ -1,5 +1,6 @@
 /// <reference types="bun-types" />
 import { describe, expect, test } from "bun:test"
+import { join } from "node:path"
 
 import { AUTH_WIDGET_IDS, WIDGET_SCENE_IDS } from "./widget-machine"
 import {
@@ -20,6 +21,20 @@ function absDelta(delta: { x: number; y: number }) {
 describe("MOTION §§1–3 hard gates", () => {
   test("stage is 1280×800", () => {
     expect(STAGE).toEqual({ w: 1280, h: 800 })
+  })
+
+  test("never tweens #stage camera", async () => {
+    const motion = await Bun.file(
+      join(import.meta.dir, "./widget-motion.ts")
+    ).text()
+    const scene = await Bun.file(
+      join(import.meta.dir, "../components/desk-scene.tsx")
+    ).text()
+    expect(scene).toContain('viewBox="0 0 1280 800"')
+    expect(motion).not.toMatch(/gsap\.(to|from|fromTo|set)\(\s*["']#stage/)
+    expect(motion).toContain("stage.style.pointerEvents")
+    expect(motion).not.toContain("LOGIN_OUT")
+    expect(motion).not.toContain("#login-control")
   })
 
   test("OFF and FROM are true off-canvas, not micro-shift", () => {

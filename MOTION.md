@@ -6,7 +6,7 @@
 - [手帐 UI Widget 贴纸 v2](https://cursor.com/canvas/store-ca500a49-1eed-4ab7-8196-83b91a8be5cd/cfcda443-ab93-4e33-bdce-4765e55443fb)
 
 **舞台**：现有 DeskScene SVG（木桌 + 道具线稿），禁止换皮 / 新 scene-graph / 第二间房。  
-**相机（MunMun 锁 · 永不改）**：`#stage` viewBox `0 0 1280 800` **永远固定**。禁 zoom / 禁改 tilt / 禁切页 / 禁第二登录世界 / 禁相机跟踪。login-only 与 desk 同一木桌取景。enter = 物件飞入画框，相机不动。expanded dialog **叠在同一相机上**，不跟随 Widget。  
+**相机（MunMun 锁 · 永不改）**：`#stage` viewBox `0 0 1280 800` **永远固定**。**HARD BAN**：永不 transform `#stage`（禁 scale / translate / zoom / tilt / 改 viewBox）。GSAP 不得 tween `#stage`；`lockStage` 只改 `pointer-events`。禁切页 / 禁第二登录世界 / 禁相机跟踪。login-only 与 desk 同一木桌取景。enter = 物件飞入画框，相机不动。expanded dialog **叠在同一相机上**，不跟随 Widget（轨仍等 UI 贴纸，本分支不实现）。  
 **绑定**：时间轴绑场景态 `login-only | enter | desk | held(widgetId) | exit`，不绑路由。  
 **login-only**：同一木桌取景。空木桌 + **仅 auth Widget**（本版只有一块 `widget-auth-github`「GitHub 登录」）。无内容 Widget、无杯笔植物胶带。禁把登录做成一次性 `#chrome-layer` / `#login-control` 角标。  
 **Auth**：每个登录源自己一块桌上 Widget。**禁「更多登录」聚合 dialog**、禁 max-3 溢出桶。以后加源 = 桌上再放一块，不是收进一个入口。  

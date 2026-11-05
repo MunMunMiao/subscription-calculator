@@ -66,7 +66,6 @@ export const SECONDARY_TAPE_IDS = [
   "prop-tape-gingham",
 ] as const
 
-/** Camera is the SVG viewBox. Never tween #stage / #desk / viewBox. */
 function reduceMotion() {
   return window.matchMedia("(prefers-reduced-motion: reduce)").matches
 }
@@ -76,6 +75,7 @@ function skipIfReduce(tl: gsap.core.Timeline) {
   return tl
 }
 
+/** HARD BAN: never tween #stage (no scale/translate/zoom/tilt/viewBox). */
 function lockStage(lock: boolean) {
   const stage = document.querySelector("#stage")
   if (!(stage instanceof SVGElement) && !(stage instanceof HTMLElement)) return
