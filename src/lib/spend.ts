@@ -304,8 +304,11 @@ export function sixMonthForecast(
   for (const charge of charges) {
     if (charge.currency !== currency) continue
     const date = parseISODate(charge.date)
-    const bucket = buckets.find((item) => date >= item.start && date < item.end)
-    if (bucket) bucket.amountCents += charge.amountCents
+    for (const bucket of buckets) {
+      if (date >= bucket.start && date < bucket.end) {
+        bucket.amountCents += charge.amountCents
+      }
+    }
   }
 
   return buckets.map(({ month, amountCents }) => ({ month, amountCents }))

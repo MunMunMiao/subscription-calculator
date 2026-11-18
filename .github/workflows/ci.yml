@@ -17,4 +17,9 @@ jobs:
       - run: bun check
       - run: bun fmt --check
       - run: bun run lint
+      - name: Install Playwright Chromium
+        run: bunx playwright install --with-deps chromium
+      - run: bun run test
+        env:
+          CI: true
       - run: bun run build

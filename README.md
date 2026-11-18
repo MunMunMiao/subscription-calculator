@@ -87,9 +87,9 @@ bun run dev
 
 Open `http://localhost:3000`.
 
-1. Landing is the wooden desk: title **手帐** and **GitHub 登录**.
-2. After GitHub OAuth returns to `/`, the same desk stays on screen. Paper tabs switch 总览 / 分类 / 订阅 / 扣费 / 记一笔 via GSAP (not URL routes).
-3. `/app`, `/login`, and `/subscriptions` redirect to `/`. Auth and RPC stay at `/api/auth/*` and `/api/rpc/*`.
+1. Unauthed landing is `login-only`: the **same 1280×800 wood desk camera** (no zoom, tilt, or page cut) plus one auth widget (`widget-auth-github` · 「GitHub 登录」). No 「更多登录」 bucket, no content widgets, no cup/pen/plant/tape, and no overview widget.
+2. After GitHub OAuth (or Preview `/?e2e=browse`), MOTION `enter` flies the four content widgets in from off-screen (`|Δ|≥420`). Idle desk with nothing expanded **is** 总览.
+3. Compact faces stay in their slots. A click opens a separate `#desk-dialog` on the same camera; close, desk click, or the same widget returns to compact. Logout plays `exit` (collapse first if needed). `/app`, `/login`, and `/subscriptions` redirect to `/`.
 
 `install` + `check` + `build` do **not** need real GitHub/Cloudflare credentials. Runtime sign-in, D1 persistence, and `wrangler deploy` do.
 
@@ -116,7 +116,7 @@ Preview a production build locally with `bun run preview` (Workers runtime via t
 | GSAP register   | `src/lib/gsap.ts`                                               |
 | Spend math      | `src/lib/spend.ts`                                              |
 
-The visible desk, letter paper, and stationery are inline SVG. Paper content (login, lists, form) overlays the SVG sheet. Mode changes are GSAP timelines inside `DeskApp`; TanStack Router is not used to switch those views.
+The visible desk and stationery are one SVG scene with a **fixed camera** (`#stage` viewBox `0 0 1280 800`). Content lives in heterogeneous widgets (`widget-category`, `widget-subs`, `widget-charges`, `widget-compose`). Unauth landing is one Auth Widget per source (`widget-auth-github` in this version; later sources are more desk widgets, never a 「更多登录」 dialog). GSAP timelines bind to `login-only | enter | desk | expanded | exit` (see `MOTION.md`). `#widget-auth-github` idle home is desk-center `translate(530 368)` (face 220×64), inside the slice-safe wood. Logged-in users can drag the four content widgets; a move under 8px still opens `#desk-dialog`. The monthly total is ink on the subscription cover. Compact labels are SVG text in LXGW WenKai (13 / 16 / 18 on the 1280×800 stage). Logout is the on-desk `#widget-session` plate, which flies in from the left with the desk and flies back out on exit. Saved slots live in D1 for a signed-in user and in `localStorage` on preview. TanStack Router is not used to switch those views.
 
 Amounts are stored as integer minor units (`amount_cents`). USD and CNY are totaled separately; the app does not invent an exchange rate.
 
